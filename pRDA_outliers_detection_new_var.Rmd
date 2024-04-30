@@ -1,0 +1,337 @@
+---
+title: "pRDA_outliers_detection_new_var"
+author: "Thomas Francisco"
+date: "2024-04-30"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(cache = FALSE)
+
+library(vegan)
+library(dplyr)
+library(robust) #for rdadapt
+library(qvalue) #for rdadapt
+library(ggplot2)
+
+
+```
+
+
+
+################################ correcting for population structure #######################################
+
+We will correct for population structure using only the PCa axis to avoir overcorrecting and to be consistent with other analysis (LFMM)
+
+
+    1. DATA
+    
+They are coming from the script variance_partitioning
+
+```{r data}
+
+#genomic data
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/data_allelic_frequencies_29pop_adapcon_gentree_475_8616.Rdata")
+
+genomic_matrix <- data_allelic_frequencies_29pop_adapcon_gentree_475_8616
+
+#climatic/structure/IBD
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/variance_partitioning/Climatic_data_RDA_pRDA.Rdata") 
+
+
+```
+
+    2. Performing the RDA
+
+We perform the pRDA accounting for population structure
+```{r pRDA with population correction, message=FALSE, warning=FALSE}
+#model
+pRDA_env <- rda(formula = genomic_matrix ~  Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality + Condition(PC1+PC2), data = Climatic_data_RDA_pRDA, scale=F)
+
+RsquareAdj(pRDA_env)
+summary(pRDA_env)
+
+#significativity of the model
+
+#anova.cca(pRDA_env)
+
+#test the significativity of the axis and the climatic variables using permutation
+
+#anova.cca(pRDA_env, step = 1000, by = "axis")
+#anova.cca(pRDA_env, step = 1000, by = "term")
+
+```
+
+
+
+Then, we need to perform the outliers selection on this models. To do this, we will follow procedure in Capblancq et al. 2021 and we will identified outliers based on their extremeness along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using a certain number of axes (K). 
+
+First, we need to select the number of ordination axis (RDA axis) that we will retains
+```{r screeplot}
+#screeplot
+plot(pRDA_env$CCA$eig, option="screeplot")
+#or like that
+screeplot_pRDA<- screeplot(pRDA_env)
+
+ #save
+png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA/screeplot_RDA.png");screeplot_RDA<- screeplot(pRDA_env);dev.off()
+
+#explained variance along each RDA axis
+pRDA_env$CCA$eig
+
+vif.cca(pRDA_env)
+
+```
+Interpretation: based on this, we will keep the 2 first RDA axis to perform the outliers detection
+
+We need to represent the snp in the RDa space and the individuals
+```{r population representation RDA space}
+#score along the 2 first RDA axis
+score_climatic_var <- as.data.frame(scores(pRDA_env, choices=c(1:2), display="bp"))
+Score_population <- data.frame(pRDA_env$CCA$u[,c(1,2)])
+
+#meta_data
+meta_data_pop <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv",h=T,sep=";",dec=",")
+
+#merge for country info
+Score_population_bis <- rownames_to_column(Score_population,"Population")
+score_with_country_info <- merge(Score_population_bis,meta_data_pop[,c(1,2)],"Population")
+score_with_country_info$Country <- as.factor(score_with_country_info$Country)
+
+#explained variance along each RDA axis
+explained_variance <- data.frame(pRDA_env$CCA$eig)*100/sum(pRDA_env$CCA$eig) # variance of each axis*100 divided by the sum of all the explained variance for all axis
+
+explained_variance_round <- round(explained_variance$pRDA_env.CCA.eig,digits=1)
+
+group_palette <- c("Bosnia"="orangered3", "France"="gold2","Germany"= "darkorchid3", "Greece"="navyblue", "Italy"="turquoise2", "Norway"="green3", "Slovakia"="blue", "Slovenia"="red", "Spain"="black", "Sweden"="gray", "Switzerland"="orange", "UK"="darkgreen")
+
+
+##Biplot avec les individus et les variables climatiques
+biplot_populations <- ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = gray(0.80), size = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = gray(0.80), size = 0.6) +
+  geom_point(data = score_with_country_info, aes(x = RDA1 * 3, y = RDA2 * 3, colour = Country), size = 2, alpha = 0.8) +
+  geom_segment(data = score_climatic_var, aes(xend = RDA1, yend = RDA2, x = 0, y = 0), colour = "black", size = 0.15, linetype = 1, arrow = arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = score_climatic_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(score_climatic_var)), size = 2.5)+
+  xlab(paste0("RDA 1 (",explained_variance_round[1],"%)")) + 
+  ylab(paste0("RDA 2 (",explained_variance_round[2],"%)")) +
+  ggtitle("Biplot pRDA Populations") +
+  scale_color_manual(name = "Countries", values = group_palette, labels = levels(score_with_country_info$Country)) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", panel.grid = element_blank(), strip.text = element_text(size=11),plot.title = element_text(hjust = 0.5,color = "Black",face="italic")) +
+  labs(color = "Country")
+
+ print(biplot_populations)
+ 
+ #save
+pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA/biplot_pRDA_populations.pdf");print(biplot_populations);dev.off()
+
+```
+Interpretation: We can see that populations more in altitude/ more in the est are on the left along the first axis and populations in less altitute wih warmer temperature are on the right -> RDA1 seems to be a continentality/altitude gradient.
+RDA2 separate the populations based on the temperature and precipitation. Seems to be an altitude gradient. 
+
+
+
+    3. Identification of outliers
+
+We can perform the genome scan procedure to calculate the Mahalanobis distance and then qvalues and pvalues associate to this distance to do an outliers selection
+
+```{r genome scan function}
+rdadapt<-function(rda,K)
+{
+  zscores<-rda$CCA$v[,1:as.numeric(K)]
+  resscale <- apply(zscores, 2, scale)
+  resmaha <- covRob(resscale, distance = TRUE, na.action= na.omit, estim="pairwiseGK")$dist
+  lambda <- median(resmaha)/qchisq(0.5,df=K)
+  reschi2test <- pchisq(resmaha/lambda,K,lower.tail=FALSE)
+  qval <- qvalue(reschi2test)
+  q.values_rdadapt<-qval$qvalues
+  return(data.frame(p.values=reschi2test, q.values=q.values_rdadapt))
+}
+
+#Perform the fucntion to calculate the mahalanobis distance and then pvalues/ qvalues
+
+genome_scan_pRDA <- rdadapt(pRDA_env,2)
+
+#plot the distribution of pvalues 
+Histogram_of_Pvalues_pRDA<- hist(genome_scan_pRDA$p.values,
+     main= "Histogram of pRDA P-values",
+     xlab= "P-values")
+
+#save the histogram
+ png(filename="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA/Histogram_of_Pvalues_pRDA.png");Histogram_of_Pvalues_pRDA<- hist(genome_scan_pRDA$p.values,
+     main= "Histogram of pRDA P-values",
+     xlab= "P-values");dev.off()
+```
+    4. Selection of a threshold
+    
+Now, we need to select a threshold and then save the outlier
+```{r selection of outliers}
+# qvalues < 0.05
+thres_qvalues <- 0.05
+
+outliers_qvalues_5perc_pRDA <- data.frame(Loci = colnames(genomic_matrix)[which(genome_scan_pRDA$q.values<thres_qvalues)], p.value = genome_scan_pRDA$q.values[which(genome_scan_pRDA$q.values<thres_qvalues)], contig = unlist(lapply(strsplit(colnames(genomic_matrix)[which(genome_scan_pRDA$q.values<thres_qvalues)], split = "_"), function(x) x[1])))
+
+outliers_qvalues_5perc_pRDA
+
+# qvalues < 0.10
+thres_qvalues <- 0.10
+
+outliers_qvalues_10perc_pRDA <- data.frame(Loci = colnames(genomic_matrix)[which(genome_scan_pRDA$q.values<thres_qvalues)], p.value = genome_scan_pRDA$q.values[which(genome_scan_pRDA$q.values<thres_qvalues)], contig = unlist(lapply(strsplit(colnames(genomic_matrix)[which(genome_scan_pRDA$q.values<thres_qvalues)], split = "_"), function(x) x[1])))
+
+outliers_qvalues_10perc_pRDA
+
+#threshold pvalues < 0.05 with Bonferonni correction
+thres_pvalues <- 0.05/length(genome_scan_pRDA$p.values)
+
+outliers_pvalues <- data.frame(Loci = colnames(genomic_matrix)[which(genome_scan_pRDA$p.values<thres_pvalues)], p.value = genome_scan_pRDA$p.values[which(genome_scan_pRDA$p.values<thres_pvalues)], contig = unlist(lapply(strsplit(colnames(genomic_matrix)[which(genome_scan_pRDA$p.values<thres_pvalues)], split = "_"), function(x) x[1])))
+
+outliers_pvalues
+
+#top 1%
+##add colnames
+genome_scan_pRDA$snp_names <- colnames(genomic_matrix)
+
+outliers_top1perc <- genome_scan_pRDA %>% 
+  arrange(p.values) %>%
+slice(1:(0.01*nrow(.))) %>%  
+  as.data.frame()
+
+
+```
+
+
+
+
+We also perform the outlier detection based on the loadings of loci along the RDa axis to search for extreme loadings on each retained axis
+```{r extremness along RDA axis}
+load.rda <- scores(pRDA_env, choices=c(1:3), display="species")
+
+hist(load.rda[,1], main="Loadings on RDA1")
+hist(load.rda[,2], main="Loadings on RDA2")
+
+```
+
+```{r perform the detection }
+#function to do it
+outliers_function <- function(x,z){
+  lims <- mean(x) + c(-1, 1) * z * sd(x)     # find loadings +/-z sd from mean loading     
+  x[x < lims[1] | x > lims[2]]               # locus names in these tails
+}
+
+cand1 <- data.frame(outliers_function(load.rda[,1],3)) # 3
+colnames(cand1) <- c("pvalues"); cand1$snp_names <- row.names(cand1)
+cand2 <- data.frame(outliers_function(load.rda[,2],3)) # 51
+colnames(cand2) <- c("pvalues"); cand2$snp_names <- row.names(cand2)
+
+#names of the outliers
+outliers_extremness <- rbind (cand1,cand2)
+
+
+```
+
+
+    5. Graphic representations of the outliers: 
+    
+```{r mahalanobis distance FDR 0.05 threshold}
+
+score_loci <- as.data.frame(scores(pRDA_env, choices=c(1:2), display="species", scaling="none"))
+score_loci_outliers <- data.frame(names = row.names(score_loci), score_loci)
+score_loci_outliers$FDR5 <- "Neutral"
+score_loci_outliers$FDR5[score_loci_outliers$names%in%outliers_qvalues_5perc_pRDA$Loci] <- "candidates FDR5%"
+score_loci_outliers$FDR5 <- factor(score_loci_outliers$FDR5, levels = c("Neutral", "candidates FDR5%"))
+score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5),]
+
+#Biplot avec les loci outliers et les variables climatiques
+ biplot_outliers_pRDA<- ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = score_loci_outliers, aes(x=RDA1*15, y=RDA2*15,colour=FDR5), size = 1.4) +
+  geom_segment(data = score_climatic_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = score_climatic_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(score_climatic_var)), size = 2.5, family = "Times") +
+  xlab(paste0("RDA 1 (",explained_variance_round[1],"%)")) + 
+  ylab(paste0("RDA 1 (",explained_variance_round[2],"%)")) +
+  ggtitle("pRDA space: outliers FDR 5%") +
+  guides(color=guide_legend(title="Locus type")) +
+  scale_color_manual(values = c("lightblue", "#F9A242FF")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", panel.grid = element_blank(), strip.text = element_text(size=11),plot.title = element_text(hjust = 0.5,color = "Black",face="italic"))
+ 
+
+ print(biplot_outliers_pRDA)
+ 
+ #save
+pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA/biplot_outliers_pRDA_FDR_5perc.pdf");print(biplot_outliers_pRDA);dev.off()
+
+```
+
+
+We can also represent the top candidates, the relax ones and the neutral into the RDA space
+```{r mahalanobis distance FDR 0.10 threshold}
+
+score_loci <- as.data.frame(scores(pRDA_env, choices=c(1:2), display="species", scaling="none"))
+score_loci_outliers <- data.frame(names = row.names(score_loci), score_loci)
+score_loci_outliers$FDR5_10 <- "Neutral"
+score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_10perc_pRDA$Loci] <- "candidates FDR10%"
+score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_5perc_pRDA$Loci] <- "candidates FDR5%"
+score_loci_outliers$FDR5_10 <- factor(score_loci_outliers$FDR5_10, levels = c("Neutral","candidates FDR10%","candidates FDR5%"))
+score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5_10),]
+
+#Biplot avec les loci outliers et les variables climatiques
+ biplot_outliers_pRDA_relax<- ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = score_loci_outliers, aes(x=RDA1*15, y=RDA2*15,colour=FDR5_10), size = 1.4) +
+  geom_segment(data = score_climatic_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = score_climatic_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(score_climatic_var)), size = 2.5) +
+  xlab(paste0("RDA 1 (",explained_variance_round[1],"%)")) + 
+  ylab(paste0("RDA 2 (",explained_variance_round[2],"%)")) +
+   ggtitle("pRDA space: outliers FDR 10%") +
+  guides(color=guide_legend(title="Locus type")) +
+  scale_color_manual(values = c("lightblue","darkgreen","orange")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", panel.grid = element_blank(), strip.text = element_text(size=11),plot.title = element_text(hjust = 0.5,color = "Black",face="italic"))
+ 
+ print(biplot_outliers_pRDA_relax)
+ 
+ #save
+pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA/biplot_outliers_pRDA_FDR_5_10perc.pdf");print(biplot_outliers_pRDA_relax);dev.off()
+
+```
+
+
+
+    6. Overlapping between methods
+
+We want to see if the outliers from extremness and the fdr 5% are similar: 
+```{r overlapping of the methods}
+
+colnames(outliers_qvalues_5perc_pRDA)= c( "snp_names","p.value","contig")
+#overlapping extremeness 2.5 and top 1%
+overlapping <- merge(outliers_extremness,outliers_qvalues_5perc_pRDA,"snp_names")
+```
+Interpretation: 135 out of the 136 outliers identified by extremeness are overlapping with the 243 of qvalues. 
+
+
+We will use FDR 5% as a threshold to identified snp
+We save the fdr: 
+
+      - 5% outliers: 
+
+```{r save FDR 5% outliers}
+outliers_pRDA_FDR5perc_T_Adapcon_gentree <- outliers_qvalues_5perc_pRDA[,-3]
+
+#write_xlsx(outliers_pRDA_FDR5perc_T_Adapcon_gentree,"C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_pRDA_FDR5perc_T_Adapcon_gentree.xlsx")
+save(outliers_pRDA_FDR5perc_T_Adapcon_gentree, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_pRDA_FDR5perc_T_Adapcon_gentree.Rdata")
+```
+
+      - 10% outliers: 
+
+```{r save FDR 10% outliers}
+outliers_pRDA_FDR10perc_T_Adapcon_gentree <- outliers_qvalues_10perc_pRDA[,-3]
+
+#write_xlsx(outliers_RDA_FDR10perc_T_Adapcon_gentree,"C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/outliers/outliers_RDA_FDR5perc_T_Adapcon_gentree.xlsx")
+save(outliers_pRDA_FDR10perc_T_Adapcon_gentree, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_pRDA_FDR10perc_T_Adapcon_gentree.Rdata")
+```
