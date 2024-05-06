@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(cache = FALSE, warning = FALSE)
 #download gradientforest package
 #install.packages("gradientForest", repos=c("http://R-Forge.R-project.org",
 #"http://cran.at.r-project.org"),dependencies=TRUE)
@@ -20,7 +20,7 @@ library(radiant.data) #for row_names_to_columns
 library(textshape) #for colnames_to_row.names
 ```
 
-####################################GF corrected for population structure ###################################
+In this script, we will perform an GF analysis corrected for population structure. To see some explanation on GF, see script GF-raw_outliers_detection
 
 GF doesn't have an option to correct for population structure. To perform GF by correcting for population structure, we need to use as genomic dataset already corrected for population structure. We cannot use the scale population structure matrix of BAYPASS because we need a dataframe and not a matrix but we can used the genotypic dataset from LFMM that is corrected for population structure using latent factor.
 
@@ -38,7 +38,7 @@ vars <- colnames(Past_climatic[,-c(1:2)])
 
 
 
-We load the corrected LFMM geno dataframe. 
+We load the corrected LFMM geno dataframe. The genomic data is then the matrix from LFMM so individual level for 475 indiv , 8616 SNPs imputed and with MAF correction
 ```{r load genotypic dataset corrected for populations structure}
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA/Genomic_matrix_corrected_from_LFMM_T_adapcon_gentree.Rdata")
 corrected_geno_data <- Genomic_matrix_corrected_from_LFMM_T_adapcon_gentree
@@ -83,7 +83,7 @@ allelic_frequencies_f <- allelic_frequencies %>% column_to_rownames('data_freque
 ```
 
 
-    2/3. Perform the GF outliers detection
+    2/3. Perform the GF candidates detection
     
 We used the function from the script GF_RAW_outliers_detection. 
 ```{r function to perform the GF and output the results in 1 code}
@@ -93,20 +93,7 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
   #GF function
   runGF <- function(alFreq,  envTab, vars, ntree, 
                   cores, indLoci){
-  
-  ### CHECK THE FORMATTING OF THE EXAMPLE DATA & MAKE SURE YOUR DATA
-  ### TABLES ARE THE SAME (OR EDIT CODE TO MATCH YOUR FORMATTING)
-  
-  # freqFilePath = path to allele freq. file
-  # envTab = table of env data, with a row for each population
-  # vars = vector of variable names to be used in gf modeling
-  # ntree = the number of trees to fit using GF
-  # rmRare = remove rare alleles?
-  # SNPs = run all SNPs or subset (for subset, provide vector of SNP IDs)?
-  # cores = # number of processors to use
-  # indLoci = run loci individually or all in the same model?
-  # nRand = number of random SNPs to model if nRand > 0
-  
+
   require(data.table)
   require(gradientForest)
   require(parallel)
@@ -131,17 +118,12 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
     cl <- makeCluster(cores, setup_strategy = "sequential")
     registerDoParallel(cl)
     
-
-    
     gfMods <- foreach(k=1:ncol(alFreq), .verbose=F, .packages=c("gradientForest"), .errorhandling = c("pass")) %dopar%{
       locus <- data.frame(alFreq[,k])
       names(locus) <- colnames(alFreq)[k]
       gf.mod <- gradientForest(data.frame(envTab[, vars], locus), 
                                predictor.vars=vars, response.vars=colnames(alFreq)[k], 
                                corr.threshold=0.5, ntree=ntree, trace=T)
-
-    
-    
     if(!is.null(gf.mod)){
         imps <- importance(gf.mod)
         imps <- imps[order(names(imps))]
@@ -160,14 +142,9 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
     return(gfOutObj(alFreq = data.frame(alFreq), imp = gfMods))
   }
 }
-  
-  
-
-  
   #run GF
   GF_test <- runGF(genomic_matrix,climatic_data,vars,ntree=ntree, 
                   cores=cores, indLoci=T)
-  
   
   #extract the loci correlated to the climate
   Extract_correlation_loci_climate<- GF_test@imp
@@ -188,7 +165,6 @@ gfR2tab <- function(gfMods.list){
 
 
 dataset_R2_loci_climate <- gfR2tab(loci_correlated_climate)
-
 
   #select randomly the SNPs, we selected 20% of all SNPs to create the null distribution
 
@@ -248,45 +224,43 @@ dev.off()
 
 vars <- colnames(Past_climatic[,-c(1:2)])
 path <- "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/corrected_lfmm/"
-Run1 <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=1,path)
-Run2 <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=2,path)
-Run3 <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=3,path)
-Run4 <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=4,path)
-Run5 <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=5,path)
 
+#for(x in 1:5){
+#  name_file <- paste0("Run",x)
+#  Run <- Run_GF_and_select_outliers(allelic_frequencies_f, Past_climatic, 500, 4,600,vars,x=x,path)
+#  applied(name_file, Run)
+#}
 ```
 
-We save the Runs of GF_corr
+We save the runs of GF_corrected for consistency in downstream analysis by not reruns it each times and getting different results (because it's a machine learning approach)
 
 ```{r save }
-save(Run1,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run1.Rdata" )
-save(Run2,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run2.Rdata" )
-save(Run3,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run3.Rdata" )
-save(Run4,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run4.Rdata" )
-save(Run5,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run5.Rdata" )
+#for(x in 1:5){
+#  save(paste0("Run",x),file=paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run",x,".Rdata"))
+#}
 ```
 
 
 
-   4. Selecting a threshold to identify outliers 
+    4. Selecting a threshold to identify candidates
+   
+   
 We can laod the run to skip the steps 1,2 and 3. 
 ```{r load RUNs}
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run1.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run2.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run3.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run4.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run5.Rdata")
+for(x in 1:5){
+  load(paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_corrected/Run",x,".Rdata"))
+}
 ```
     
 
-Now we want to identified outliers. To do that, we can calculate 2 types of thresholds: 
-    - **rank pvalues threshold:**
-        - rank based 1%
-        - rank based 0.5%
+Now we want to identified candidates. To do that, we can calculate 2 types of thresholds:  
+**rank pvalues threshold:**  
+        - rank based 1%  
+        - rank based 0.5%  
         
-    - **pvalues threshold:** 
-        - pvalues 0.05
-        - pvalues 0.01
+**pvalues threshold:**  
+        - pvalues 0.05  
+        - pvalues 0.01  
         
 ```{r calculation of thresholds}
 for(i in 1:5){
@@ -326,9 +300,9 @@ outliers_pv0.01 <- data[,c(1,15)] %>% filter(pval_totalR2<0.01) %>% pull(SNP)
 
 
 One important step is to compare the results of the different runs for each threshold.
-We realized venn_diagram plots to visualize the number of common outliers across runs
+We realized venn_diagram plots to visualize the number of common candidates across runs
 ```{r venn_diagram representation for comparison across runs}
-  #outlier 0.01
+  #candidates 0.01
   venn.diagram(x = list(Run1_outliers_pv0.01, Run2_outliers_pv0.01, Run3_outliers_pv0.01, Run4_outliers_pv0.01, Run5_outliers_pv0.01),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
         filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/corrected_lfmm/venn_diagramm_GF_raw_pv0.01.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
@@ -338,7 +312,7 @@ imagetype="png",
 output=TRUE)
 
 
-  #outliers 0.05
+  #candidates 0.05
 venn.diagram(x = list(Run1_outliers_pv0.05, Run2_outliers_pv0.05, Run3_outliers_pv0.05, Run4_outliers_pv0.05, Run5_outliers_pv0.05),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
         filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/corrected_lfmm/venn_diagramm_GF_raw_pv0.05.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
@@ -368,16 +342,14 @@ print.mode=c("raw","percent"),
 imagetype="png",
 output=TRUE
 )
-        
-
 ```
 
-Globally, we can see that only a very small part of all the snps identified as outliers are common across runs. That is a result that inform us that using GF as outliers detection methods is maybe not the best method. It's especially true when using dataset corrected for populations structure. 
-As outliers, we selected and save the the top 1% of SNPs for downstream analysis
+Globally, we can see that only a very small part of all the SNPs identified as candidates are common across runs. This result inform us that using GF as candidates detection methods corrected for population structure is maybe not the best method. 
+We will not use the candidates identified across runs by GF-corrected
 
-```{r select the overlapping outliers across runs and save them}
+```{r select the overlapping candidates across runs and save them}
 
-#Select only the outliers identified in all 5 runs
+#Select only the candidates identified in all 5 runs
 outliers_rank_based_top1perc_GF_corrected <- Reduce(intersect, list(Run1_top1SNP[,1], Run2_top1SNP[,1], Run3_top1SNP[,1], Run4_top1SNP[,1], Run5_top1SNP[,1]))
 
 #save
