@@ -8,25 +8,25 @@ output: html_document
 This script will perform the outlier detection using gradient forest.
 
 Gradient forest is a machine learning methods introduce by Ellis, Smith and Pitcher, 2012. Fitzpatrick & Keller (2015) described how GF can be used to (1) analyze and map spatial variation in allele frequencies as a function of environmental gradients and (outliers detection and GEA) (2) project patterns of genomic variation under future climate (genomic offset).
-More precisely, "GF uses Random Forest to fit an ensemble of regression trees to model change in allele frequencies across sites and derive monotonic, nonlinear functions of environmental predictors. The empirical, nonlinear turnover functions are constructed by distributing the R 2 values from all SNPs among the predictor gradients in proportion to their accuracy importance and along each gradient according to the density of the raw split importance values. The split importance values for all modeled SNPs also are aggregated to an overall, genome-wide turnover function for each variable using weightings based on predictor importance and the goodness-of-fit for each SNP model" Fitzpatrick et al. (2021).
-GF is a multivariate methods because it can handle multiple climatic variable at the same times but only one SNP per SNP.(RDA is also a multivariate methods because of that and also it can handle several response variables at the same time -> unique method that does that, LFMM can be univariate for both or same as GF)
+More precisely, "GF uses Random Forest to fit an ensemble of regression trees to model change in allele frequencies across sites and derive monotonic, nonlinear functions of environmental predictors. The empirical, nonlinear turnover functions are constructed by distributing the R^2 values from all SNPs among the predictor gradients in proportion to their accuracy importance and along each gradient according to the density of the raw split importance values. The split importance values for all modeled SNPs also are aggregated to an overall, genome-wide turnover function for each variable using weightings based on predictor importance and the goodness-of-fit for each SNP model" Fitzpatrick et al. (2021).
+GF is a multivariate methods because it can handle multiple climatic variable at the same times but only one SNP per SNP.(RDA is also a multivariate methods because of that and also it can handle several response variables at the same time -> unique method that does that, LFMM can be univariate for both or same as GF, BAYPASS univariate).
 
 In this script, we will use the GF algorithm for outlier detection following Fitzpatrick et al. (2021) and Archambeau et al. (2024).
-We will perform the GF on a genomic dataset corrected and non-corrected for population structure. 
+We will perform the GF on a genomic dataset corrected and non-corrected for population structure (see script GF_corrected_outliers_detection)
 
-To evaluate for each locus their association with climatic variables, we will compute empirical pvalues. These pvalues are calcualted by comparing a nulle distribution of R2 with the R2 values of each locus and the more the R^2 values is away from the distribution, the more the pvalues is low.
+To evaluate for each locus their association with climatic variables, we will compute empirical pvalues. These pvalues are calculated by comparing a nulle distribution of R2 with the R2 values of each locus and the more the R^2 values is away from the distribution, the more the pvalues is low.
 To compute these pvalues, the first step is to select the SNP set that will be used to compute the null distribution.
 If SNPs in intergenic regions or maybe SNPs in non coding regions identified by genetic load are available that is much better.
-Unfortunately, here we do not have such SNPs, so I will use like Archambeau et al. 2024 and use a random subset of SNP from the dataset to create the null distribution.
+Unfortunately, here we do not have such SNPs, so I will use like Archambeau et al. 2024 a random subset of SNP from the dataset to create the null distribution.
 
-There are 4 steps to perform the outlier detection with GF:
-    1. Formatting the genomic and the climatic data
-    2. Run GF
-    3. Calculating the empirical pvalues by comparing R^2 values of all snp with the distribution of R^2 values of a random set of SNPs (if it can be neutral outliers from intergenic regions or maybe SNPs in non coding regions identified by genetic load? it would be better). 
-    4. Selecting a threshold to identify outliers
-    5. Results of the 5 runs
+There are 4 steps to perform the outlier detection with GF:  
+    1. Formatting the genomic and the climatic data  
+    2. Run GF  
+    3. Calculating the empirical pvalues by comparing R^2 values of all SNP with the distribution of R^2 values of a random set of SNPs (if it can be neutral canditates from intergenic regions or maybe SNPs in non coding regions identified by genetic load? it would be better).  
+    4. Selecting a threshold to identify canditates  
+    5. Results of the 5 runs  
     
-We will perform the last 3 steps 5 times for each dataset and select as outliers for each dataset the outliers overlapping between the 5 runs because between runs the identified outliers could slightly change (Archambeau et al. 2024). 
+We will perform the last 3 steps 5 times for each dataset and select as canditates for each dataset the SNPs overlapping between the 5 runs because between runs the identified canditates could slightly change (Archambeau et al. 2024). 
 
 ```{r setup, include=FALSE}
 rm(list = ls())
@@ -43,15 +43,13 @@ library(radiant.data) #for row_names_to_columns
 library(textshape) #for colnames_to_row.names
 ```
 
-#####################################################GF non corrected for population structure ############################################
+This script will only perform the GF candidate identification non corrected for population structure (PS) (see script GF_corrected_outliers_detection for GF corrected for PS)
 
     1. Formatting the genomic and the climatic data
 
 The format to perform the gradient forest (GF) according to Fitzpatrick et al. (2021) is to arrange populations in rows and single nucleotide polymorphisms (SNPs) in columns. It's important that the order of populations is consistent between the genomic data file and the climatic data file.
 
-The genomic file is loaded with a minimum allele frequency (MAF) cutoff of 20, as low MAF alleles could potentially impact the genomic environmental association (GEA).
-
-
+The genomic file is loaded with a minimum allele frequency (MAC) cutoff of 20, as low MAF alleles could potentially impact the genomic environmental association (GEA) (the same MAC threshold was applied for each GEA methods).
 
 ```{r formatting data}
 #genomic data
@@ -61,19 +59,16 @@ genomic_matrix <- data_allelic_frequencies_29pop_adapcon_gentree_475_8616
 #climatic data
 Past_climatic <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_new_6_Climatic_data_scale_df.csv",sep=";",dec=",")
 vars <- colnames(Past_climatic[,-c(1:2)])
-
 ```
 
 
-Steps 2,3 are not showed in details here because we automatically do these steps but, they are explained in the script GF_outliers_detection_step_by_step.
+Steps 2,3 are not showed in details here because we created a function do these steps but, they are explained in the script GF_outliers_detection_step_by_step.
 
     2/3. Results of the 5 runs
     
-In this last step, we will perform the GF 5 times because the outliers can vary from one run to another due to the nature of the analysis (machine learning). (Moreover, the random null distribution could randomnly select outliers so in order to take into account that, we will select for each runs the outliers identified by at least 2 of the 5 null distribution)
+In this step, we will perform the GF 5 times because as explained above, the candidates can vary from one run to another due to the nature of the analysis (machine learning). (Moreover, the random null distribution could randomly select candidates so in order to take into account that, we will select for each runs the candidates identified by at least 2 of the 5 null distribution).
 
-
-
-```{r function to perform the GF and output the results in 1 code}
+```{r function to perform the GF and output the results in 1 code, message=FALSE, warning=FALSE}
 
 
 Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cores,nbr_loci_distrib,vars,x,path){
@@ -81,20 +76,6 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
   #GF function
   runGF <- function(alFreq,  envTab, vars, ntree, 
                   cores, indLoci){
-  
-  ### CHECK THE FORMATTING OF THE EXAMPLE DATA & MAKE SURE YOUR DATA
-  ### TABLES ARE THE SAME (OR EDIT CODE TO MATCH YOUR FORMATTING)
-  
-  # freqFilePath = path to allele freq. file
-  # envTab = table of env data, with a row for each population
-  # vars = vector of variable names to be used in gf modeling
-  # ntree = the number of trees to fit using GF
-  # rmRare = remove rare alleles?
-  # SNPs = run all SNPs or subset (for subset, provide vector of SNP IDs)?
-  # cores = # number of processors to use
-  # indLoci = run loci individually or all in the same model?
-  # nRand = number of random SNPs to model if nRand > 0
-  
   require(data.table)
   require(gradientForest)
   require(parallel)
@@ -118,18 +99,13 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
     # fit gf model to each SNP individually
     cl <- makeCluster(cores, setup_strategy = "sequential")
     registerDoParallel(cl)
-    
 
-    
     gfMods <- foreach(k=1:ncol(alFreq), .verbose=F, .packages=c("gradientForest"), .errorhandling = c("pass")) %dopar%{
       locus <- data.frame(alFreq[,k])
       names(locus) <- colnames(alFreq)[k]
       gf.mod <- gradientForest(data.frame(envTab[, vars], locus), 
                                predictor.vars=vars, response.vars=colnames(alFreq)[k], 
                                corr.threshold=0.5, ntree=ntree, trace=T)
-
-    
-    
     if(!is.null(gf.mod)){
         imps <- importance(gf.mod)
         imps <- imps[order(names(imps))]
@@ -148,14 +124,9 @@ Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cor
     return(gfOutObj(alFreq = data.frame(alFreq), imp = gfMods))
   }
 }
-  
-  
-
-  
   #run GF
   GF_test <- runGF(genomic_matrix,climatic_data,vars,ntree=ntree, 
                   cores=cores, indLoci=T)
-  
   
   #extract the loci correlated to the climate
   Extract_correlation_loci_climate<- GF_test@imp
@@ -174,12 +145,9 @@ gfR2tab <- function(gfMods.list){
   totalR2 <- rowSums(tab[,-1])
   return(data.frame(tab, totalR2=totalR2))}
 
-
 dataset_R2_loci_climate <- gfR2tab(loci_correlated_climate)
 
-
   #select randomly the SNPs, we selected 20% of all SNPs to create the null distribution
-
 name_neutral_snps <- sample(dataset_R2_loci_climate$SNP,nbr_loci_distrib,replace = F)
 
 neutral_snps_set <- dataset_R2_loci_climate %>% 
@@ -236,44 +204,39 @@ dev.off()
 
 vars <- colnames(Past_climatic[,-c(1:2)])
 path <- "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/"
-Run1 <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=1,path)
-Run2 <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=2,path)
-Run3 <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=3,path)
-Run4 <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=4,path)
-Run5 <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=5,path)
 
+#for(x in 1:5){
+#  name_file <- paste0("Run",x)
+#  Run <- Run_GF_and_select_outliers(genomic_matrix, Past_climatic, 500, 4,600,vars,x=x,path)
+#  applied(name_file, Run)
+#}
 ```
 
-We save the Runs of GF_raw if needeed to rerun them to change threshold or perform new analysis/ figures
+We save the Runs of GF_raw if needed to rerun them to change threshold or perform new analysis/ figures
 
 ```{r save }
-save(Run1,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run1.Rdata" )
-save(Run2,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run2.Rdata" )
-save(Run3,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run3.Rdata" )
-save(Run4,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run4.Rdata" )
-save(Run5,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run5.Rdata" )
-
+#for(x in 1:5){
+#  save(paste0("Run",x),file=paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run",x,".Rdata"))
+#}
 ```
 
-    4. Selecting a threshold to identify outliers 
-We can laod the run to skip the steps 1,2 and 3. 
+    4. Selecting a threshold to identify candidates 
+We can load the run to skip the steps 1,2 and 3. 
 ```{r load RUNs}
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run1.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run2.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run3.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run4.Rdata")
-load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run5.Rdata")
+for(x in 1:5){
+  load(paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_var/GF_RAW/Run",x,".Rdata"))
+}
 ```
     
 
-Now we want to identified outliers. To do that, we can calculate 2 types of thresholds: 
-    - **rank pvalues threshold:**
-        - rank based 1%
-        - rank based 0.5%
+Now we want to identified candidates To do that, we can calculate 2 types of thresholds:   
+     **rank pvalues threshold:**  
+        - rank based 5%  
+        - rank based 1%  
         
-    - **pvalues threshold:** 
-        - pvalues 0.05
-        - pvalues 0.01
+     **pvalues threshold:**  
+        - pvalues 0.05  
+        - pvalues 0.01  
     
 ```{r calculation of thresholds}
 for(i in 1:5){
@@ -311,10 +274,11 @@ outliers_pv0.01 <- data[,c(1,15)] %>% filter(pval_totalR2<0.01) %>% pull(SNP)
 
 
 One important step is to compare the results of the different runs for each threshold.
-We realized venn_diagram plots to visualize the number of common outliers across runs
-```{r venn_diagram representation for comparison across runs}
+We realized venn_diagram plots to visualize the number of common candidates across runs
+
+```{r venn_diagram representation for comparison across runs, message=FALSE, warning=FALSE}
   #outlier 0.01
-  venn.diagram(x = list(Run1_outliers_pv0.01, Run2_outliers_pv0.01, Run3_outliers_pv0.01, Run4_outliers_pv0.01, Run5_outliers_pv0.01),
+venn.diagram(x = list(Run1_outliers_pv0.01, Run2_outliers_pv0.01, Run3_outliers_pv0.01, Run4_outliers_pv0.01, Run5_outliers_pv0.01),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
         filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_pv0.01.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
 alpha = 0.30,
@@ -345,7 +309,7 @@ output=TRUE
 )
 
  #top 5%
-venn.diagram(x = list(Run1_top5SNP[,1], Run2_top5SNP[,1], Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]),
+s=venn.diagram(x = list(Run1_top5SNP[,1], Run2_top5SNP[,1], Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
         filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_top5.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
 alpha = 0.30,
@@ -353,17 +317,14 @@ print.mode=c("raw","percent"),
 imagetype="png",
 output=TRUE
 )
-        
-
 ```
 
-Globally, we can see that only a part of all the snps identified as outliers are common across runs. That is a result that inform us that using GF as outliers detection methods is maybe not the best method. 
-As outliers, we selected and save the top :
+Globally, we can see that only a part of all the snps identified as candidates are common across runs. That is a result that inform us that using GF as candidates detection methods is maybe not the best method. 
+As candidates, we selected and save the top :
 
         - 1% of SNPs for downstream analysis
-```{r select the overlapping outliers across runs and save them}
-
-#Select only the outliers identified in all 5 runs
+```{r select the overlapping candidates across runs and save them 1%}
+#Select only the candidates identified in all 5 runs
 outliers_rank_based_top1perc_GF_raw <- Reduce(intersect, list(Run1_top1SNP[,1],Run2_top1SNP[,1],Run3_top1SNP[,1],Run4_top1SNP[,1], Run5_top1SNP[,1]))
 
 #save
@@ -372,12 +333,10 @@ save(outliers_rank_based_top1perc_GF_raw,file="C:/Users/tfrancisco/Documents/Th�
 
       - 5% of SNPs for downstream analysis as a relax threshold candidates
       
-```{r select the overlapping outliers across runs and save them}
-
+```{r select the overlapping candidates across runs and save them 5%}
 #Select only the outliers identified in all 5 runs
 outliers_rank_based_top5perc_GF_raw <- Reduce(intersect, list(Run1_top5SNP[,1],Run2_top5SNP[,1],Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]))
 
 #save
 save(outliers_rank_based_top5perc_GF_raw,file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_rank_based_top5perc_GF_raw.Rdata", force=T)
-
 ```
