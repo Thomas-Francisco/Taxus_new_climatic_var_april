@@ -1,5 +1,5 @@
 ---
-title: "RDA_outliers_detection_new_variables"
+title: "RDA candidates detection new variables"
 author: "Thomas Francisco"
 date: "2024-04-30"
 output: html_document
@@ -20,20 +20,19 @@ library(qvalue) #for rdadapt
 library(ggplot2)
 library(radiant.data) #for row_names_to_columns
 library(textshape) #for colnames_to_row.names
-
-
 ```
 
-#################################################### Outliers selection: Redundancy analysis(RDA) ############################
+**Candidate selection: Redundancy analysis(RDA)**
 
 In this script, we will perform an RDA (not accounting for population structure): 
-**explain principle of RDA**
-
+Redundancy analysis are multivariate canonical analysis that are halfway between PCA and multiple regression. Indeed, it performed an analysis similar to a multiple regression, the major differences is that RDA perform a multiple regression with a matrix of response variables and not just one. It's a canonical analysis because this analysis will create canonical axis similar to a PCs. The explanation of this analysis is that we first performed linear regressions between the explanatory variables and the responses variables then we performed on the fitted values (result of the linear regressions) a PCA to create the canonical axis (RDA axis) to reduce the number of dimensions. These canonical axis are the results of the linear combinations of the explanatory variables. It's like a PCA and a multiple regression because in the end, we have results similar to PCA but with fitted values enabling us to extrapolate the model (following a linear relationship).
+In the end, RDA is a multivariate analysis following linear hypothesis that cannot be corrected for population structure (see pRDA for correction)
+Sources: Legendre and Legendre 2012, Capblancq 2021, workshop redundancy analysis of the Quebec centre for Biodiversity Science (https://r.qcbs.ca/workshop10/book-en/redundancy-analysis.html)
 
     1. Loading data
     
 Data is coming from the script variance_partitioning where the different variables of interest were gather in one data frame. 
-
+The genomic matrix is the allelic frequencies at the population level (29 pop) on the imputed dataset (475 indiv, 8616 SNPs) with MAF correction
 ```{r data}
 
 #genomic data
@@ -49,28 +48,24 @@ load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA_new_v
 
     2. Performing the RDA
 
-We perform the RDA without correcting by population structure
+We perform the Redundancy analysis with the genomic matrix corrected for MAF and the scaled climatic variables of interest
 ```{r RDA without correcting, message=FALSE, warning=FALSE}
 #model
 RDA_env <- rda(formula = genomic_matrix ~  Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality, data = Climatic_data_RDA_pRDA, scale=F)
 
 RsquareAdj(RDA_env)
+#other analysis to test the model
 #summary(RDA_env)
-
 #significativity of the model
-
 #anova.cca(RDA_env)
-
 #test the significativity of the axis and the climatic variables using permutation
-
 #anova.cca(RDA_env, step = 1000, by = "axis")
 #anova.cca(RDA_env, step = 1000, by = "term")
-
 ```
+Interpretation: The r^2 of the climatic variable on the genomic matrix is quite important suggesting that performing GEA on this dataset can be interesting because a important number of candidates could be identified. 
 
 
-
-Then, we need to perform the outliers selection on this models. To do this, we will follow the procedure in Capblancq et al. 2021 and we will identified outliers based on their position along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using a certain number of axes (K). 
+Then, we need to perform the candidate selection on this models. To do this, we will follow the procedure in Capblancq et al. 2021 and we will identified outliers based on their position along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using a certain number of axes (K). 
 
 First, we need to select the number of ordination axis (RDA axis) that we will retains
 ```{r screeplot, warning=FALSE}
@@ -81,18 +76,18 @@ plot(RDA_env$CCA$eig, option="screeplot")
 screeplot_RDA<- screeplot(RDA_env)
 
 #explained variance along each RDA axis
-RDA_env$CCA$eig
+RDA_env$CCA$eig*100/sum(RDA_env$CCA$eig)
 ```
-```{r save screeplot}
+```{r save screeplot, include=FALSE}
 #save
 png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/screeplot_RDA.png")
 screeplot_RDA<- screeplot(RDA_env)
 dev.off()
 ```
 
-Interpretation: based on this, we will keep the 2 first RDA axis to perform the outliers detection
+Interpretation: based on this, we will keep the 2 first RDA axis to perform the candidates detection
 
-Then, we can plot the position of each populations in the RDA space. 
+One interesting things with RDA is that we can plot in the same space the populations (or individuals or genotype depending on our study), the loci and the climatic variables. Here, we represented into the RDA space, the populations and the climatic variable in a biplot.
 ```{r population representation RDA space}
 #score along the 2 first RDA axis
 score_climatic_var <- as.data.frame(scores(RDA_env, choices=c(1:2), display="bp"))
@@ -137,15 +132,15 @@ biplot_populations <- ggplot() +
 pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/biplot_RDA_populations.pdf");print(biplot_populations);dev.off()
 ```
 
-Interpretation: We can see that populations more in altitude/in the East are on the left along the first RDA axis and populations in less altitute wih warmer temperature are on the right -> RDA1 seems to be a continentality/altitudinal gradient.
+Interpretation: We can see that populations more in altitude/in the East are on the left along the first RDA axis and populations in less altitute with warmer temperature are on the right -> RDA1 seems to be a continentality/altitudinal gradient.
 RDA2 seems to separate the populations based on their precipitation. 
-
 
 
     3. Identification of outliers
 
-We can perform the genome scan procedure to calculate the Mahalanobis distance and then calculate qvalues and pvalues associated to this distance that will be used as threshold for outliers selection. 
+The next step is to perform the genome scan procedure to calculate the Mahalanobis distance and then calculate qvalues and pvalues associated to this distance that will be used as threshold for candidates selection. 
 
+We used the rdadapt function from Capblancq et al 2021:
 ```{r genome scan function}
 rdadapt<-function(rda,K)
 {
@@ -159,11 +154,10 @@ rdadapt<-function(rda,K)
   return(data.frame(p.values=reschi2test, q.values=q.values_rdadapt))
 }
 
-#Perform the function to calculate the mahalanobis distance and then pvalues/ qvalues
+#Perform the function to calculate the mahalanobis distance and then pvalues/qvalues
+genome_scan_RDA <- rdadapt(RDA_env,K=2) #the K is equal to the number of RDA axis that we want to use for the selection
 
-genome_scan_RDA <- rdadapt(RDA_env,2)
-
-#save the pvalues for each snp for selecting snp in LD
+#save the pvalues for each snp for retaining SNPs in LD with the greater signal in the outliers identification script
 pvalues_RDA_snp <- data.frame(snp_names=colnames(genomic_matrix),pvalues= genome_scan_RDA$p.values)
 save(pvalues_RDA_snp,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA_new_var/pvalues_RDA_snp.Rdata" )
 
@@ -184,7 +178,7 @@ Interpretation: The distribution of pvalues seems to follow the expected distrib
 
     4. Selection of a threshold
     
-Based on these calculations of pvalues and qvalues, we are able to perform an outlier selection: 
+Based on these calculations of pvalues and qvalues, we are able to perform a candidate selection: 
 ```{r selection of outliers}
 # qvalues < 0.05
 thres_qvalues <- 0.05
@@ -220,9 +214,6 @@ nrow(outliers_pvalues)
 
 ```
 
-
-
-
 We also perform the outlier detection based on the loadings of loci along the RDa axis to search for extreme loadings on each retained axis following Forester et al. (2018). 
 
 ```{r extremness along RDA axis}
@@ -230,9 +221,10 @@ load.rda <- scores(RDA_env, choices=c(1:3), display="species")
 
 hist(load.rda[,1], main="Loadings on RDA1")
 hist(load.rda[,2], main="Loadings on RDA2")
-
 ```
 
+
+Function from Forester et al. (2018).
 ```{r perform the detection }
 #function to do it
 outliers_function <- function(x,z){
@@ -254,14 +246,14 @@ nrow(outliers_extremness)
 
     5. Graphic representations of the outliers: 
     
-We can represent the candidates and the neutral into the RDA space:
+We can represent the candidates and the neutral loci into the RDA space with the climatic variables:
 ```{r mahalanobis distance FDR 0.05 threshold}
 
 score_loci <- as.data.frame(scores(RDA_env, choices=c(1:2), display="species", scaling="none"))
 score_loci_outliers <- data.frame(names = row.names(score_loci), score_loci)
 score_loci_outliers$FDR5 <- "Neutral"
-score_loci_outliers$FDR5[score_loci_outliers$names%in%outliers_qvalues_5perc_RDA$Loci] <- "candidates FDR5%"
-score_loci_outliers$FDR5 <- factor(score_loci_outliers$FDR5, levels = c("Neutral", "candidates FDR5%"))
+score_loci_outliers$FDR5[score_loci_outliers$names%in%outliers_qvalues_5perc_RDA$Loci] <- "candidates FDR 5%"
+score_loci_outliers$FDR5 <- factor(score_loci_outliers$FDR5, levels = c("Neutral", "candidates FDR 5%"))
 score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5),]
 
 #Biplot with SNPs and climatic variables along the two first RDA axis. 
@@ -273,7 +265,7 @@ score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5),]
   geom_text(data = score_climatic_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(score_climatic_var)), size = 2.5) +
   xlab(paste0("RDA 1 (",explained_variance_round[1],"%)")) + 
   ylab(paste0("RDA 2 (",explained_variance_round[2],"%)")) +
-   ggtitle("RDA space: outliers FDR 5%") +
+   ggtitle("RDA space: candidates FDR 5%") +
   guides(color=guide_legend(title="Locus type")) +
   scale_color_manual(values = c("lightblue", "#F9A242FF")) +
   theme_bw(base_size = 11) +
@@ -287,19 +279,18 @@ pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/
 ```
 
 
-We can also represent the top candidates, the relax ones and the neutral into the RDA space
+We can also represent the top candidates with FDR 5% and the presumably neutrals into the RDA space
 ```{r mahalanobis distance FDR 0.10 threshold}
-
 score_loci <- as.data.frame(scores(RDA_env, choices=c(1:2), display="species", scaling="none"))
 score_loci_outliers <- data.frame(names = row.names(score_loci), score_loci)
 score_loci_outliers$FDR5_10 <- "Neutral"
-score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_10perc_RDA$Loci] <- "candidates FDR10%"
-score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_5perc_RDA$Loci] <- "candidates FDR5%"
-score_loci_outliers$FDR5_10 <- factor(score_loci_outliers$FDR5_10, levels = c("Neutral","candidates FDR10%","candidates FDR5%"))
+score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_10perc_RDA$Loci] <- "candidates FDR 10%"
+score_loci_outliers$FDR5_10[score_loci_outliers$names%in%outliers_qvalues_5perc_RDA$Loci] <- "candidates FDR 5%"
+score_loci_outliers$FDR5_10 <- factor(score_loci_outliers$FDR5_10, levels = c("Neutral","candidates FDR 10%","candidates FDR 5%"))
 score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5_10),]
 
-#Biplot with SNPs and climatic variables along the two first RDA axis. 
- biplot_outliers_RDA_relax<- ggplot() +
+#Biplot with SNPs and climatic variables along the two first RDA axis including the less conservative threshold
+ biplot_outliers_RDA_LC<- ggplot() +
   geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
   geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
   geom_point(data = score_loci_outliers, aes(x=RDA1*15, y=RDA2*15,colour=FDR5_10), size = 1.4) +
@@ -307,46 +298,46 @@ score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5_10),]
   geom_text(data = score_climatic_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(score_climatic_var)), size = 2.5) +
   xlab(paste0("RDA 1 (",explained_variance_round[1],"%)")) + 
   ylab(paste0("RDA 2 (",explained_variance_round[2],"%)")) +
-   ggtitle("RDA space: outliers FDR 10%") +
+   ggtitle("RDA space: candidates FDR 10%") +
   guides(color=guide_legend(title="Locus type")) +
   scale_color_manual(values = c("lightblue","darkgreen","orange")) +
   theme_bw(base_size = 11) +
   theme(legend.position="right", panel.grid = element_blank(), strip.text = element_text(size=11),plot.title = element_text(hjust = 0.5,color = "Black",face="italic"))
  
- print(biplot_outliers_RDA_relax)
+ print(biplot_outliers_RDA_LC)
 ```
 ```{r save biplot all set SNPs, include=FALSE}
  #save
-pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/biplot_outliers_RDA_FDR_5_10perc.pdf");print(biplot_outliers_RDA_relax);dev.off()
+pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/biplot_outliers_RDA_FDR_5_10perc.pdf");print(biplot_outliers_RDA_LC);dev.off()
 ```
 
 
     6. Overlapping between methods
 
-We want to see if the outliers from extremness and the FDR 5% are similar: 
+We want to see if the candidates from extremness and the FDR 5% are similar: 
 ```{r overlapping of the methods}
 
 colnames(outliers_qvalues_5perc_RDA)= c( "snp_names","p.value","contig")
 #overlapping extremeness 2.5 and qvalues < 0.05
 overlapping <- merge(outliers_extremness,outliers_qvalues_5perc_RDA,"snp_names")
 ```
-Interpretation: 137 out of the 144 outliers identified by extremeness are overlapping with the 211 retained by a qvalues threshold of 0.05. 
+Interpretation: 137 out of the 144 candidates identified by extremeness are overlapping with the 211 retained by a qvalues threshold of 0.05. 
 
 We will use FDR as a threshold to identified snp.
-We save the outliers identified by FDR thresholds:
+We save the candidates identified by FDR thresholds:
 
-    - FDR 5% outliers: 
+    - FDR 5% candidates: 
 
-```{r save FDR 5% outliers}
+```{r save FDR 5% candidates}
 outliers_RDA_FDR5perc_T_Adapcon_gentree <- outliers_qvalues_5perc_RDA[,-3]
 
 #write_xlsx(outliers_RDA_FDR5perc_T_Adapcon_gentree,"C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/outliers/outliers_RDA_FDR5perc_T_Adapcon_gentree.xlsx")
 save(outliers_RDA_FDR5perc_T_Adapcon_gentree, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_RDA_FDR5perc_T_Adapcon_gentree.Rdata")
 ```
 
-    - FDR 10% outliers: 
+    - FDR 10% candidates: 
 
-```{r save FDR 10% outliers}
+```{r save FDR 10% candidates}
 outliers_RDA_FDR10perc_T_Adapcon_gentree <- outliers_qvalues_10perc_RDA[,-3]
 
 #write_xlsx(outliers_RDA_FDR10perc_T_Adapcon_gentree,"C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/outliers/outliers_RDA_FDR5perc_T_Adapcon_gentree.xlsx")
