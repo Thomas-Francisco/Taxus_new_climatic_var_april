@@ -1,0 +1,200 @@
+---
+title: "Outliers_set_New_var_FDR5perc_top1perc_BF10"
+author: "Thomas Francisco"
+date: "2024-04-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(cache = FALSE)
+library(VennDiagram)
+library(dplyr)
+library(genetics)#LD function
+library(corrplot)
+library(tidyr)
+
+```
+
+
+This script will enable to visualize and choose the set of outliers loci that will be used to compute genomic offset. To select the candidates SNPs, we performed 5 GEA methods in order to detect SNPs potentially correlated with climatic variables: 
+    - RDA: Redundancy analysis. It's a linear multivariate methods (multivariate for response and explanatory variables) that do not account for population structure
+    - pRDA: Partial Redundancy analysis. It's an extension of the RDA accounting for population structure. As proxy of population structure, we used the PCs axis of a genetic PCA. 
+    - BAYPASS: It's also a linear models accounting for population structure, univariate because it does consider explanatory variables one by one. The proxy of population structure is an omega matrix of genetic variation between populations using the core model of BAYPASS. 
+    - LFMM: latent factor mixte model: it's a linear multivariate model: all explanatory variables are studying together. It does correct for population structure by using latent factor (it's very similar to what we found with genetic PCs) 
+    - GF: it's a non linear model based on machine learning. It does not correct for population structure and it's a multivariate analysis. snp per snp but all climatic variables together. Nevertheless, we can try to correct by population structure but it did not work well...
+    
+    
+Each of these methods provide a set of candidate SNPs. To select our outliers, we will only retained from these candidates, SNP identified by at least 2 methods. 
+
+                                                This is the main set of candidates based on FDR 5% and top 1%. 
+
+    1. Load the candidates snps 
+
+
+```{r load data}
+#names of the files
+list_data <- c("outliers_RDA_FDR5perc_T_Adapcon_gentree","outliers_pRDA_FDR5perc_T_Adapcon_gentree","outliers_T_adapcon_gentree_BAYPASS_BF_10","outliers_T_adapcon_gentree_LFMM_5perc","outliers_rank_based_top1perc_GF_raw")
+
+#name of the output
+names_set <- c("RDA","pRDA","BAYPASS","LFMM","GF")
+
+#load data
+for(x in 1:5){
+  
+  set <- list_data[x]
+  load(paste0("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/",set,".Rdata"))
+  
+  name <- names_set[x]
+
+
+assign(paste0(name,"_set"),get(set))  
+
+}
+```
+
+
+We need to put every set into a list
+```{r format sets}
+#list of candidates
+list_candidates<-list(RDA=RDA_set[,1],pRDA=pRDA_set[,1],BAYPASS=BAYPASS_set[,1],LFMM=LFMM_set[,1],GF=GF_set)
+```
+
+
+
+we can represent in a venn diagram to visualize the overlapping candidates
+```{r venn.diagram, echo=FALSE, message=FALSE, warning=FALSE}
+ venn.diagram(x = list_candidates,
+        category.names = c("RDA" ,"pRDA","BAYPASS","LFMM","GF"),
+        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/figure/venn_diagramm_candidates.png",fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+alpha = 0.30,
+print.mode=c("raw"),
+imagetype="png",
+output=TRUE)
+
+```
+
+Now, we can make a dataframe with only the overlapping candidate of at least 2 methods: 
+
+```{r Overlapping snp of at least 2 methods}
+comm_RDA_pRDA <- data.frame(outliers=list_candidates[c("RDA","pRDA")] %>% Reduce(intersect, .))
+comm_RDA_BAYPASS <- data.frame(outliers=list_candidates[c("RDA","BAYPASS")] %>% Reduce(intersect, .))
+comm_RDA_GF <- data.frame(outliers=list_candidates[c("GF","RDA")] %>% Reduce(intersect, .))
+comm_RDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","RDA")] %>% Reduce(intersect, .))
+comm_pRDA_BAYPASS <- data.frame(outliers=list_candidates[c("pRDA","BAYPASS")] %>% Reduce(intersect, .))
+comm_pRDA_GF <- data.frame(outliers=list_candidates[c("GF","pRDA")] %>% Reduce(intersect, .))
+comm_pRDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","pRDA")] %>% Reduce(intersect, .))
+comm_BAYPASS_GF <- data.frame(outliers=list_candidates[c("GF","BAYPASS")] %>% Reduce(intersect, .))
+comm_BAYPASS_LFMM <- data.frame(outliers=list_candidates[c("LFMM","BAYPASS")] %>% Reduce(intersect, .))
+comm_GF_LFMM <- data.frame(outliers=list_candidates[c("GF","LFMM")] %>% Reduce(intersect, .))
+
+
+outliers_set <- data.frame(rbind(comm_RDA_pRDA,comm_RDA_BAYPASS,comm_RDA_GF,comm_RDA_LFMM,comm_pRDA_BAYPASS,comm_pRDA_GF,comm_pRDA_LFMM,comm_BAYPASS_GF,comm_BAYPASS_LFMM,comm_GF_LFMM)) %>% unique()
+```
+
+We can see that some of the outliers are located on the same contig. This can bias the signals by giving more signals to regions of the genome with more outliers from the same signal because they are in LD. 
+We want to keep only candidates that are not in LD.  
+
+
+Linkage desequilibrium 
+```{r LD }
+#load genotypic data at the individual level
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA/vcf_data_GEA.Rdata")
+genomic_matrix_LD <- vcf_data_GEA
+
+
+#subset the genomic matrix to only the outliers
+candidates_to_LD <- data.frame(genomic_matrix_LD[outliers_set$outliers])
+
+#put the data into the right format
+genotypic_data<- makeGenotypes(candidates_to_LD)
+
+#RUN the LD calculation
+LD_estimate <- LD(genotypic_data)
+
+```
+
+```{r Save and plot }
+#save the R² values
+matrix_LD <- LD_estimate$`R^2`
+matrix_LD_format<- matrix_LD[,-1] #remove the first row
+
+#filtered the LD to only take LD lower than -0.7 or above 0.7
+matrix_ld_filtered <- matrix_LD_format
+matrix_ld_filtered[abs(matrix_LD_format) < 0.7] <- 0
+
+# Plot the modified LD matrix using corrplot
+corrplot(matrix_ld_filtered, method = "number", addrect = 2, col = c("red","white", "red"), type = "upper", tl.col = "black", tl.cex = 0.6, number.cex = 0.5, cl.pos="n")
+
+
+# Save in a dataframe the SNP with LD above 0.7
+LD0.7<- which(matrix_LD_format > 0.7 & matrix_LD_format, arr.ind = TRUE)
+
+# Create a dataframe to retain snp in LD with others  
+LD_df <- data.frame(
+  snp_names_1 = rownames(matrix_LD_format)[LD0.7[, 1]],
+  snp_names_2 = colnames(matrix_LD_format)[LD0.7[, 2]],
+  LD = matrix_LD_format[LD0.7]
+)
+
+#save
+png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/figure/LD_matrix_SNPs.png");corrplot(matrix_ld_filtered, method = "number", addrect = 2, col = c("red","white", "red"), type = "upper", tl.col = "black", tl.cex = 0.6, number.cex = 0.5, cl.pos="n");dev.off()
+
+```
+
+
+Add the pvalues indice to keep only the outliers with the lowest values.
+
+```{r pvalues}
+#we need to output the names of the outliers in LD to see their pvalues and keep the lowest ones
+LD_snps <- data.frame(snp_names = c(LD_df$snp_names_1,LD_df$snp_names_2)) %>% unique()
+
+#load pvalues RDA
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA_new_var/pvalues_RDA_snp.Rdata")
+
+
+p_values_RDA_snp_1 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_1)=c("snp_names_1","pvalues_1")
+p_values_RDA_snp_2 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_2)=c("snp_names_2","pvalues_2")
+
+pval_final_1 <- merge(LD_df,p_values_RDA_snp_1,"snp_names_1")
+pval_final_2 <- merge(LD_df,p_values_RDA_snp_2,"snp_names_2")
+
+
+pval_merge <- cbind(pval_final_1,pval_final_2[,4])
+
+pval_merge_final <- pval_merge[,c(1,4,2,5)]; colnames(pval_merge_final) <- c("snp_names_1","pvalues_1","snp_names_2","pvalues_2")
+
+pval_merge_final$worst_snp <- ifelse(pval_merge_final$pvalues_1 > pval_merge_final$pvalues_2, pval_merge_final$snp_names_1, pval_merge_final$snp_names_2) #select the snp with the farest pvalues from 0 (the weakest signal)
+
+#snp to remove
+SNP_to_remove <- pval_merge_final$worst_snp %>% unique()
+```
+
+
+Final dataset without the snp in LD with the weakest signal
+```{r remove snp in LD}
+outliers_set_final_overlapping_no_LD_new_var <- outliers_set[!(outliers_set$outliers %in% SNP_to_remove),]
+
+#save it 
+save(outliers_set_final_overlapping_no_LD_new_var, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_set_final_overlapping_no_LD_new_var.Rdata")
+```
+
+
+
+Finally, we calculated the common outliers between the two set of climatic variables (knowing that there is one variable added in the new set and that the resolution is different because the first was extracted from layer of points and the second from raster)
+
+```{r}
+load("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/outliers/outliers_set_final_overlapping_no_LD.Rdata")
+
+outliers_set_final_overlapping_no_LD_df <- data.frame(outliers=outliers_set_final_overlapping_no_LD)
+outliers_set_final_overlapping_no_LD_new_var_df <- data.frame(outliers=outliers_set_final_overlapping_no_LD_new_var)
+
+#merge the two dataset
+
+similar_outliers_df <- merge(outliers_set_final_overlapping_no_LD_df,outliers_set_final_overlapping_no_LD_new_var_df,"outliers")
+
+nrow(similar_outliers_df)
+```
+
+
+

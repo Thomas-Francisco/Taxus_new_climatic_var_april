@@ -80,7 +80,7 @@ Load file to gain time by not running the filters each time:
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/script_filtering(not_running_it_each_time)/vcf_filter_structure.Rdata")
 ```
 
-
+ 
 These results are used to output 2 types of datasets to study the population structure: 
 
     - Structure

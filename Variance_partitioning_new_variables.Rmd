@@ -21,7 +21,7 @@ First, we load the datasets. Because the goal is to disentangle the effects of t
 
 #climatic data
 ##0.6 corr
-Past_climatic_new_var <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_new_6_Climatic_data_scale_df.csv",sep=";",dec=",")
+Past_climatic_new_var <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_new_6_Climatic_data_scale_df.csv",sep=";",dec=",") 
 
 #Ancestry proxies
 ##PCs axis

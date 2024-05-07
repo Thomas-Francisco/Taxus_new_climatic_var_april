@@ -314,7 +314,7 @@ colnames(outliers_qvalues_5perc_pRDA)= c( "snp_names","p.value","contig")
 overlapping <- merge(outliers_extremness,outliers_qvalues_5perc_pRDA,"snp_names")
 ```
 Interpretation: 152 out of the 161 candidate identified by extremeness are overlapping with the 225 of qvalues. 
-
+ 
 
 We will use FDR as a threshold to identified snp.  
 We save the candidate identified by FDR thresholds: 

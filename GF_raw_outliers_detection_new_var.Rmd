@@ -6,7 +6,7 @@ output: html_document
 ---
 
 This script will perform the outlier detection using gradient forest.
-
+ 
 Gradient forest is a machine learning methods introduce by Ellis, Smith and Pitcher, 2012. Fitzpatrick & Keller (2015) described how GF can be used to (1) analyze and map spatial variation in allele frequencies as a function of environmental gradients and (outliers detection and GEA) (2) project patterns of genomic variation under future climate (genomic offset).
 More precisely, "GF uses Random Forest to fit an ensemble of regression trees to model change in allele frequencies across sites and derive monotonic, nonlinear functions of environmental predictors. The empirical, nonlinear turnover functions are constructed by distributing the R^2 values from all SNPs among the predictor gradients in proportion to their accuracy importance and along each gradient according to the density of the raw split importance values. The split importance values for all modeled SNPs also are aggregated to an overall, genome-wide turnover function for each variable using weightings based on predictor importance and the goodness-of-fit for each SNP model" Fitzpatrick et al. (2021).
 GF is a multivariate methods because it can handle multiple climatic variable at the same times but only one SNP per SNP.(RDA is also a multivariate methods because of that and also it can handle several response variables at the same time -> unique method that does that, LFMM can be univariate for both or same as GF, BAYPASS univariate).

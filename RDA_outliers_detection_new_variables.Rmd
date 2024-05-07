@@ -33,7 +33,7 @@ Sources: Legendre and Legendre 2012, Capblancq 2021, workshop redundancy analysi
     
 Data is coming from the script variance_partitioning where the different variables of interest were gather in one data frame. 
 The genomic matrix is the allelic frequencies at the population level (29 pop) on the imputed dataset (475 indiv, 8616 SNPs) with MAF correction
-```{r data}
+```{r data} 
 
 #genomic data
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/data_allelic_frequencies_29pop_adapcon_gentree_475_8616.Rdata")
