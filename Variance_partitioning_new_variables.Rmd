@@ -25,7 +25,7 @@ Past_climatic_new_var <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Esp
 
 #Ancestry proxies
 ##PCs axis
-structure_PCs <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA/Structure_proxy/PCa_score_T_adapcon_gentree_scale.csv",sep=";",dec=",")
+structure_PCs <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA/Structure_proxy/PCa_score_T_adapcon_gentree_scale_new.csv",sep=";",dec=",")
 
 ##STRUCTURE Groups
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/GEA/Structure_proxy/Cluster_score_STRUCTURE_T_Adapcon_gentree.Rdata")
@@ -135,26 +135,26 @@ R^2 climate : 0.22                     Adj R^2 climate : 0.08
 ```{r variance partitionning with coord as IBD proxy and Structure as ancestry proxy}
 #total model
 M_tot_coord <- rda(formula=genomic_matrix~Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality+Group1+Group2+Group3+Longitude+Latitude,data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_tot_coord)
+RsquareAdj(M_tot_coord)
 #anova.cca(M_tot_coord)
 
 
 ##partial_ancestry_model
 M_ancestry_coord <- rda(formula = genomic_matrix ~ Group1+Group2+Group3 +Condition(Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality +Longitude+Latitude), data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_ancestry_coord)
+RsquareAdj(M_ancestry_coord)
 #anova.cca(M_ancestry_coord)
 
 
 #partial_geo_model
 M_geo_coord <- rda(formula = genomic_matrix ~ Longitude+Latitude+ Condition(Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality+Group1+Group2+Group3), data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_geo_coord)
+RsquareAdj(M_geo_coord)
 #anova.cca(M_geo_coord)
 
 
 
 #partial_env_RDA
 M_IBE_coord <- rda(formula = genomic_matrix ~  Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality +Condition(Group1+Group2+Group3+Longitude+Latitude) , data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_IBE_coord)
+RsquareAdj(M_IBE_coord)
 #summary(M_IBE_coord)
 #anova.cca(M_IBE_coord)
 
@@ -171,32 +171,32 @@ R^2 climate : 0.21                     Adj R^2 climate : 0.05
 ```{r variance partitionning with dbMEMs as IBD proxy and PCs as ancestry proxy}
 #total model
 M_tot_db <- rda(formula=genomic_matrix~Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality+PC1+PC2+MEM1+MEM2+MEM3+MEM4,data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_tot_db)
+RsquareAdj(M_tot_db)
 #anova.cca(M_tot_db)
 
 
 ##partial_ancestry_model
 M_ancestry_db <- rda(formula = genomic_matrix ~ PC1+PC2 +Condition(Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality +MEM1+MEM2+MEM3+MEM4), data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_ancestry_db)
+RsquareAdj(M_ancestry_db)
 #anova.cca(M_ancestry_db)
 
 
 #partial_geo_model
 M_geo_db <- rda(formula = genomic_matrix ~ MEM1+MEM2+MEM3+MEM4+ Condition(Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality+PC1+PC2), data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_geo_db)
+RsquareAdj(M_geo_db)
 #anova.cca(M_geo_db)
 
 
 
 #partial_env_RDA
 M_IBE_db <- rda(formula = genomic_matrix ~  Annual_Tc+Diurnal_range_Tc+Tc_Seasonality+Tc_driest_quarter+Annual_P+P_Seasonality +Condition(PC1+PC2+ MEM1+MEM2+MEM3+MEM4) , data = Climatic_data_RDA_pRDA,scale=T)
-#RsquareAdj(M_IBE_db)
+RsquareAdj(M_IBE_db)
 #summary(M_IBE_db)
 #anova.cca(M_IBE_db)
 
 ```
 Interpretation:   
-R^2 tot     : 0.59                     Adj R^2 tot     : 0.28    
+R^2 tot     : 0.59                     Adj R^2 tot     : 0.27    
 R^2 ancestry: 0.10                     Adj R^2 ancestry: 0.08  
 R^2 IBD     : 0.13                     Adj R^2 IDB     : 0.04  
 R^2 climate : 0.18                     Adj R^2 climate : 0.03  
