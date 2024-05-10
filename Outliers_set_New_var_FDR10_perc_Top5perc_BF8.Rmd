@@ -157,7 +157,7 @@ LD_df_contig_bis <- LD_df %>%
 
 nrow(LD_df)-nrow(LD_df_contig_bis)
 ```
-7 Candidates were in LD with SNPs located on other contigs, we removed these LD association from the SNPs in LD (but still a SNP can be in LD with SNPs in the same contig so, it's possible that from these 7 SNPs, we still remove few of them)
+11 Candidates were in LD with SNPs located on other contigs, we removed these LD association from the SNPs in LD (but still a SNP can be in LD with SNPs in the same contig so, it's possible that from these 11 SNPs, we still remove few of them)
 
 ```{r save LD corr, include=FALSE}
 #save
@@ -178,8 +178,8 @@ load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_n
 p_values_RDA_snp_1 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_1)=c("snp_names_1","pvalues_1")
 p_values_RDA_snp_2 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_2)=c("snp_names_2","pvalues_2")
 
-pval_final_1 <- merge(LD_df,p_values_RDA_snp_1,"snp_names_1")
-pval_final_2 <- merge(LD_df,p_values_RDA_snp_2,"snp_names_2")
+pval_final_1 <- merge(LD_df_contig_bis,p_values_RDA_snp_1,"snp_names_1")
+pval_final_2 <- merge(LD_df_contig_bis,p_values_RDA_snp_2,"snp_names_2")
 
 
 pval_merge <- cbind(pval_final_1,pval_final_2[,4])
@@ -193,7 +193,7 @@ SNP_to_remove <- pval_merge_final$worst_snp %>% unique()
 
 nrow(data.frame(SNP_to_remove))
 ```
-Based on a LD of 0.7, we removed 38 SNPs. 
+Based on a LD of 0.7, we removed 36 SNPs. 
 
 Final dataset without the snp in LD with the weakest signal
 ```{r remove snp in LD}
@@ -201,7 +201,7 @@ outliers_set_final_overlapping_no_LD_LC_new_var <- outliers_set[!(outliers_set$o
 nrow(outliers_set_final_overlapping_no_LD_LC_new_var%>% as.data.frame)
 
 ```
-The final number of outliers retained for further analysis is 91.
+The final number of outliers retained for further analysis is 98.
 
 ```{r save the final outliers set, include=FALSE}
 #save it 

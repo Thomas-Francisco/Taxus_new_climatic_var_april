@@ -174,8 +174,8 @@ load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_n
 p_values_RDA_snp_1 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_1)=c("snp_names_1","pvalues_1")
 p_values_RDA_snp_2 <- merge(LD_snps, pvalues_RDA_snp,"snp_names"); colnames(p_values_RDA_snp_2)=c("snp_names_2","pvalues_2")
 
-pval_final_1 <- merge(LD_df,p_values_RDA_snp_1,"snp_names_1")
-pval_final_2 <- merge(LD_df,p_values_RDA_snp_2,"snp_names_2")
+pval_final_1 <- merge(LD_df_contig_bis,p_values_RDA_snp_1,"snp_names_1")
+pval_final_2 <- merge(LD_df_contig_bis,p_values_RDA_snp_2,"snp_names_2")
 
 
 pval_merge <- cbind(pval_final_1,pval_final_2[,4])
@@ -188,7 +188,7 @@ pval_merge_final$worst_snp <- ifelse(pval_merge_final$pvalues_1 > pval_merge_fin
 SNP_to_remove <- pval_merge_final$worst_snp %>% unique()
 nrow(data.frame(SNP_to_remove))
 ```
-Based on a LD of 0.7, we removed 18 SNPs. 
+Based on a LD of 0.7, we removed 19 SNPs. 
 
 Final dataset without the snp in LD with the weakest signal
 ```{r remove snp in LD}
