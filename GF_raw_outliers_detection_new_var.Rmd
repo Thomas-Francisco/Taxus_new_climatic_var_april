@@ -14,16 +14,16 @@ GF is a multivariate methods because it can handle multiple climatic variable at
 In this script, we will use the GF algorithm for outlier detection following Fitzpatrick et al. (2021) and Archambeau et al. (2024).
 We will perform the GF on a genomic dataset corrected and non-corrected for population structure (see script GF_corrected_outliers_detection)
 
-To evaluate for each locus their association with climatic variables, we will compute empirical pvalues. These pvalues are calculated by comparing a nulle distribution of R2 with the R2 values of each locus and the more the R^2 values is away from the distribution, the more the pvalues is low.
+To evaluate for each locus their association with climatic variables, we will compute empirical pvalues. These pvalues are calculated by comparing a null distribution of R^2 with the R^2 values of each locus and the more the R^2 values are away from the distribution, the more the pvalues is low.
 To compute these pvalues, the first step is to select the SNP set that will be used to compute the null distribution.
-If SNPs in intergenic regions or maybe SNPs in non coding regions identified by genetic load are available that is much better.
+If SNPs in intergenic regions or SNPs in non coding regions identified by genetic load are available that is much better.
 Unfortunately, here we do not have such SNPs, so I will use like Archambeau et al. 2024 a random subset of SNP from the dataset to create the null distribution.
 
 There are 4 steps to perform the outlier detection with GF:  
     1. Formatting the genomic and the climatic data  
     2. Run GF  
-    3. Calculating the empirical pvalues by comparing R^2 values of all SNP with the distribution of R^2 values of a random set of SNPs (if it can be neutral canditates from intergenic regions or maybe SNPs in non coding regions identified by genetic load? it would be better).  
-    4. Selecting a threshold to identify canditates  
+    3. Calculating the empirical pvalues by comparing R^2 values of all SNP with the distribution of R^2 values of a random set of SNPs
+    4. Selecting a threshold to identify candidates  
     5. Results of the 5 runs  
     
 We will perform the last 3 steps 5 times for each dataset and select as canditates for each dataset the SNPs overlapping between the 5 runs because between runs the identified canditates could slightly change (Archambeau et al. 2024). 
@@ -229,7 +229,7 @@ for(x in 1:5){
 ```
     
 
-Now we want to identified candidates To do that, we can calculate 2 types of thresholds:   
+Now we want to identified candidates; To do that, we can calculate 2 types of thresholds:   
      **rank pvalues threshold:**  
         - rank based 5%  
         - rank based 1%  
@@ -276,57 +276,132 @@ outliers_pv0.01 <- data[,c(1,15)] %>% filter(pval_totalR2<0.01) %>% pull(SNP)
 One important step is to compare the results of the different runs for each threshold.
 We realized venn_diagram plots to visualize the number of common candidates across runs
 
-```{r venn_diagram representation for comparison across runs, message=FALSE, warning=FALSE}
-  #outlier 0.01
+```{r plot venn_diagram for comparison across runs}
+#candidates 0.01
+grid.newpage()
+ven <- venn.diagram(x = list(Run1_outliers_pv0.01, Run2_outliers_pv0.01, Run3_outliers_pv0.01, Run4_outliers_pv0.01, Run5_outliers_pv0.01),
+        category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
+        filename = NULL,fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+alpha = 0.30,print.mode=c("raw","percent"),margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram pv 0.01 candidates across GF runs",
+                    main.fontface = "bold")  # Optional: Adjust font size)
+grid.draw(ven)
+
+#candidates 0.05
+grid.newpage()
+ven <- venn.diagram(x = list(Run1_outliers_pv0.05, Run2_outliers_pv0.05, Run3_outliers_pv0.05, Run4_outliers_pv0.05, Run5_outliers_pv0.05),
+        category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
+        filename = NULL,fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+alpha = 0.30,print.mode=c("raw","percent"),margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram pv 0.05 candidates across GF runs",
+                    main.fontface = "bold")  # Optional: Adjust font size)
+grid.draw(ven)
+
+#top 1%
+grid.newpage()
+ven <- venn.diagram(x = list(Run1_top1SNP[,1], Run2_top1SNP[,1], Run3_top1SNP[,1], Run4_top1SNP[,1], Run5_top1SNP[,1]),
+        category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
+        filename = NULL,fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+alpha = 0.30,print.mode=c("raw","percent"),margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram top 1% candidates across GF runs",
+                    main.fontface = "bold")  # Optional: Adjust font size)
+grid.draw(ven)
+
+#top 5% 
+grid.newpage()
+ven <- venn.diagram(x = list(Run1_top5SNP[,1], Run2_top5SNP[,1], Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]),
+        category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
+        filename = NULL,fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+alpha = 0.30,print.mode=c("raw","percent"),margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram top 5% candidates across GF runs",
+                    main.fontface = "bold")  # Optional: Adjust font size)
+grid.draw(ven)
+```
+
+
+```{r save venn_diagram plots, message=FALSE, warning=FALSE, include=FALSE}
+  #candidates 0.01
 venn.diagram(x = list(Run1_outliers_pv0.01, Run2_outliers_pv0.01, Run3_outliers_pv0.01, Run4_outliers_pv0.01, Run5_outliers_pv0.01),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
         filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_pv0.01.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
 alpha = 0.30,
 print.mode=c("raw","percent"),
 imagetype="png",
-output=TRUE)
+output=TRUE,
+margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram pv 0.01 candidates across GF runs",
+                    main.fontface = "bold")
 
 
-  #outliers 0.05
+  #candidates 0.05
 venn.diagram(x = list(Run1_outliers_pv0.05, Run2_outliers_pv0.05, Run3_outliers_pv0.05, Run4_outliers_pv0.05, Run5_outliers_pv0.05),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
-        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_pv0.05.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
+        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_pv0.05.png",fill= c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
 alpha = 0.30,
 print.mode=c("raw","percent"),
 imagetype="png",
-output=TRUE
-)
+output=TRUE,
+margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram pv 0.05 candidates across GF runs",
+                    main.fontface = "bold")
 
 
  #top 1%
 venn.diagram(x = list(Run1_top1SNP[,1], Run2_top1SNP[,1], Run3_top1SNP[,1], Run4_top1SNP[,1], Run5_top1SNP[,1]),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
-        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_top1.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
+        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_top1.png",fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
 alpha = 0.30,
 print.mode=c("raw","percent"),
 imagetype="png",
-output=TRUE
-)
+output=TRUE,
+margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram top 1% candidates across GF runs",
+                    main.fontface = "bold")
+
 
  #top 5%
 s=venn.diagram(x = list(Run1_top5SNP[,1], Run2_top5SNP[,1], Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]),
         category.names = c("RUN1" , "RUN2 ","RUN3","RUN4","RUN5"),
-        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_top5.png",fill = c("#45B6AA", B = "#D45176", C = "#91A6CE", D = "#86AD4C","#33A5CE"),
+        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/GF/raw/venn_diagramm_GF_raw_top5.png",fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
 alpha = 0.30,
 print.mode=c("raw","percent"),
 imagetype="png",
-output=TRUE
-)
+output=TRUE,
+margin = 0.1,  # Adjust the margins
+                    cat.fontface = "italic",  # Optional: Make category names italic
+                    cat.fontsize = 16,
+                    main= "Venn Diagram top 5% candidates across GF runs",
+                    main.fontface = "bold")
 ```
 
-Globally, we can see that only a part of all the snps identified as candidates are common across runs. That is a result that inform us that using GF as candidates detection methods is maybe not the best method. 
-As candidates, we selected and save the top :
+Globally, we can see that only a part of all the snps identified as candidates are common across runs. We can also see that the top candidates seems to be a more suitable method than using empirical pvalues (empirical pvalues are less robust than pvalues)
+As candidates, we selected and save the top candidates :
 
         - 1% of SNPs for downstream analysis
+        
 ```{r select the overlapping candidates across runs and save them 1%}
 #Select only the candidates identified in all 5 runs
 outliers_rank_based_top1perc_GF_raw <- Reduce(intersect, list(Run1_top1SNP[,1],Run2_top1SNP[,1],Run3_top1SNP[,1],Run4_top1SNP[,1], Run5_top1SNP[,1]))
 
+#number of outliers
+length(outliers_rank_based_top1perc_GF_raw)
+```
+
+```{r save candidates 1%, include=FALSE}
 #save
 save(outliers_rank_based_top1perc_GF_raw,file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_rank_based_top1perc_GF_raw.Rdata", force=T)
 ```
@@ -337,6 +412,12 @@ save(outliers_rank_based_top1perc_GF_raw,file="C:/Users/tfrancisco/Documents/Th�
 #Select only the outliers identified in all 5 runs
 outliers_rank_based_top5perc_GF_raw <- Reduce(intersect, list(Run1_top5SNP[,1],Run2_top5SNP[,1],Run3_top5SNP[,1],Run4_top5SNP[,1], Run5_top5SNP[,1]))
 
+#number of outliers
+length(outliers_rank_based_top5perc_GF_raw)
+```
+
+```{r save top 5% snps, include=FALSE}
 #save
 save(outliers_rank_based_top5perc_GF_raw,file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_rank_based_top5perc_GF_raw.Rdata", force=T)
 ```
+
