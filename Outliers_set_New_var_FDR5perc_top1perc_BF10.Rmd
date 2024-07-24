@@ -34,13 +34,14 @@ In this script, we will select outliers based on the most conservatives threshol
 
 ```{r load data}
 #names of the files
-list_data <- c("outliers_RDA_FDR5perc_T_Adapcon_gentree","outliers_pRDA_FDR5perc_T_Adapcon_gentree","outliers_T_adapcon_gentree_BAYPASS_BF_10","outliers_T_adapcon_gentree_LFMM_5perc","outliers_rank_based_top1perc_GF_raw")
+list_data <- c("outliers_RDA_FDR5perc_T_Adapcon_gentree","outliers_pRDA_FDR5perc_T_Adapcon_gentree","outliers_T_adapcon_gentree_BAYPASS_BF_10","outliers_T_adapcon_gentree_LFMM_5perc","outliers_rank_based_top1perc_GF_raw","outliers_rank_based_top1perc_GF_corrected")
+
 
 #name of the output
-names_set <- c("RDA","pRDA","BAYPASS","LFMM","GF")
+names_set <- c("RDA","pRDA","BAYPASS","LFMM","GF_raw","GF_corrected")
 
 #load data
-for(x in 1:5){
+for(x in 1:length(names_set)){
   set <- list_data[x]
   load(paste0("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/",set,".Rdata"))
   name <- names_set[x]
@@ -52,9 +53,16 @@ assign(paste0(name,"_set"),get(set))
 We need to put every set into a list
 ```{r format sets}
 #list of candidates
-list_candidates<-list(RDA=RDA_set[,1],pRDA=pRDA_set[,1],BAYPASS=BAYPASS_set[,1],LFMM=LFMM_set[,1],GF=GF_set)
+list_candidates<-list(RDA=RDA_set[,1],pRDA=pRDA_set[,1],BAYPASS=BAYPASS_set[,1],LFMM=LFMM_set[,1],GF_raw=GF_raw_set,GF_corrected=GF_corrected_set)
 ```
 
+```{r all_outliers}
+#list snps_names
+list_all_candidates_snps <- unlist(list_candidates)
+
+list_all_candidates_snps_MC <- data.frame(list_all_candidates_snps)
+write_xlsx(list_all_candidates_snps_MC,path="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/set/list_all_candidates_snps_MC.xlsx") 
+```
 
 we can represent in a venn diagram to visualize the overlapping candidates
 ```{r venn.diagram, message=FALSE, warning=FALSE, include=FALSE}
@@ -90,17 +98,25 @@ Now, we can make a dataframe with only the overlapping candidate of at least 2 m
 ```{r Overlapping snp of at least 2 methods}
 comm_RDA_pRDA <- data.frame(outliers=list_candidates[c("RDA","pRDA")] %>% Reduce(intersect, .))
 comm_RDA_BAYPASS <- data.frame(outliers=list_candidates[c("RDA","BAYPASS")] %>% Reduce(intersect, .))
-comm_RDA_GF <- data.frame(outliers=list_candidates[c("GF","RDA")] %>% Reduce(intersect, .))
+comm_RDA_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","RDA")] %>% Reduce(intersect, .))
 comm_RDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","RDA")] %>% Reduce(intersect, .))
 comm_pRDA_BAYPASS <- data.frame(outliers=list_candidates[c("pRDA","BAYPASS")] %>% Reduce(intersect, .))
-comm_pRDA_GF <- data.frame(outliers=list_candidates[c("GF","pRDA")] %>% Reduce(intersect, .))
+comm_pRDA_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","pRDA")] %>% Reduce(intersect, .))
 comm_pRDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","pRDA")] %>% Reduce(intersect, .))
-comm_BAYPASS_GF <- data.frame(outliers=list_candidates[c("GF","BAYPASS")] %>% Reduce(intersect, .))
+comm_BAYPASS_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","BAYPASS")] %>% Reduce(intersect, .))
 comm_BAYPASS_LFMM <- data.frame(outliers=list_candidates[c("LFMM","BAYPASS")] %>% Reduce(intersect, .))
-comm_GF_LFMM <- data.frame(outliers=list_candidates[c("GF","LFMM")] %>% Reduce(intersect, .))
+comm_GF_raw_LFMM <- data.frame(outliers=list_candidates[c("GF_raw","LFMM")] %>% Reduce(intersect, .))
+comm_GF_corrected_LFMM <- data.frame(outliers=list_candidates[c("GF_corrected","LFMM")] %>% Reduce(intersect, .))
+comm_BAYPASS_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","BAYPASS")] %>% Reduce(intersect, .))
+comm_pRDA_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","pRDA")] %>% Reduce(intersect, .))
+comm_RDA_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","RDA")] %>% Reduce(intersect, .))
+comm_GF_corrected_GF_raw <- data.frame(outliers=list_candidates[c("GF_corrected","GF_raw")] %>% Reduce(intersect, .))
 
 
-outliers_set <- data.frame(rbind(comm_RDA_pRDA,comm_RDA_BAYPASS,comm_RDA_GF,comm_RDA_LFMM,comm_pRDA_BAYPASS,comm_pRDA_GF,comm_pRDA_LFMM,comm_BAYPASS_GF,comm_BAYPASS_LFMM,comm_GF_LFMM)) %>% unique()
+outliers_set <- data.frame(rbind(comm_RDA_pRDA,comm_RDA_BAYPASS,comm_RDA_GF_raw,comm_RDA_LFMM,comm_pRDA_BAYPASS,comm_pRDA_GF_raw,comm_pRDA_LFMM,comm_BAYPASS_GF_raw,comm_BAYPASS_LFMM,comm_GF_raw_LFMM,comm_GF_corrected_LFMM,comm_BAYPASS_GF_corrected,comm_pRDA_GF_corrected,comm_RDA_GF_corrected,comm_GF_corrected_GF_raw)) %>% unique()
+
+#number of candidates identified by at least 2 methods
+nrow(outliers_set)
 ```
 
 We can see that some of the outliers are located on the same contig. This can bias the signals by giving more power to regions of the genome with more outliers because they are in LD. It's only an issues if we make the hypothesis that the number of SNPs per contig is not size dependent and then some contigs can be over represented due to stochastic events and then their signals could be inflated. Due to that, we only remove the SNPs in LD with other SNPs on the same contig. 
@@ -201,6 +217,9 @@ The final number of outliers retained for further analysis is 40.
 #save file 
 save(outliers_set_final_overlapping_no_LD_new_var, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_set_final_overlapping_no_LD_new_var.Rdata")
 ```
+
+
+
 
 
 
