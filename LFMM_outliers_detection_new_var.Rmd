@@ -66,13 +66,17 @@ To perform LFMM, genomic data needs to be in alleles count so at the individual 
 #climatic data at individual level
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/climatic_data_indivdual_level_scaled_new_selection_df.Rdata")
 climatic_data <- climatic_data_indivdual_level_scaled_new_selection_df
-#genomic data alleles count
+
+
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/Gen_matrix_imp_T_Adapcon_Gentree_475_8616.Rdata")
 #genomic data in numeric
 genomic_data <- Gen_matrix_imp_T_Adapcon_Gentree_475_8616 %>% mutate_all( function(x) as.numeric(as.character(x)))
 
+
 #meta_data
 meta_data_pop <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv",h=T,sep=";",dec=",")
+#alphabetic order
+meta_data_pop_order <- meta_data_pop[order(meta_data_pop$Population),]
 ```
 
 We need to adjust climatic data to the number of individuals in genomic data
@@ -128,7 +132,7 @@ score_Pca <- data.frame(score_LFMM, row.names (genomic_data))
   score_Pca_meta_data <- merge(climatic_data_475[,c(1:2)],score_Pca, "VCF_ID")
       
       # add country, population information
-      PCa_df_score <- merge(score_Pca_meta_data, meta_data_pop, "Population")
+      PCa_df_score <- merge(score_Pca_meta_data, meta_data_pop_order, "Population")
       
       # genetic PCA
       latent_factor_LFMM2_candidates_selection <- ggplot() +

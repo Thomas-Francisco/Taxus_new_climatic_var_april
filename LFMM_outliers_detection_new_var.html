@@ -408,13 +408,17 @@ correction</p>
 <pre class="r"><code>#climatic data at individual level
 load(&quot;C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/climatic_data_indivdual_level_scaled_new_selection_df.Rdata&quot;)
 climatic_data &lt;- climatic_data_indivdual_level_scaled_new_selection_df
-#genomic data alleles count
+
+
 load(&quot;C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/Gen_matrix_imp_T_Adapcon_Gentree_475_8616.Rdata&quot;)
 #genomic data in numeric
 genomic_data &lt;- Gen_matrix_imp_T_Adapcon_Gentree_475_8616 %&gt;% mutate_all( function(x) as.numeric(as.character(x)))
 
+
 #meta_data
-meta_data_pop &lt;- read.csv(&quot;C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv&quot;,h=T,sep=&quot;;&quot;,dec=&quot;,&quot;)</code></pre>
+meta_data_pop &lt;- read.csv(&quot;C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv&quot;,h=T,sep=&quot;;&quot;,dec=&quot;,&quot;)
+#alphabetic order
+meta_data_pop_order &lt;- meta_data_pop[order(meta_data_pop$Population),]</code></pre>
 <p>We need to adjust climatic data to the number of individuals in
 genomic data</p>
 <pre class="r"><code>climatic_data_475 &lt;- climatic_data[climatic_data$VCF_ID %in% row.names(Gen_matrix_imp_T_Adapcon_Gentree_475_8616),]</code></pre>
@@ -455,7 +459,7 @@ score_Pca &lt;- data.frame(score_LFMM, row.names (genomic_data))
   score_Pca_meta_data &lt;- merge(climatic_data_475[,c(1:2)],score_Pca, &quot;VCF_ID&quot;)
       
       # add country, population information
-      PCa_df_score &lt;- merge(score_Pca_meta_data, meta_data_pop, &quot;Population&quot;)
+      PCa_df_score &lt;- merge(score_Pca_meta_data, meta_data_pop_order, &quot;Population&quot;)
       
       # genetic PCA
       latent_factor_LFMM2_candidates_selection &lt;- ggplot() +
