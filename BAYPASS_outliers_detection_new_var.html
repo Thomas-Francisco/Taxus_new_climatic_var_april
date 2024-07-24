@@ -898,6 +898,76 @@ nrow(outliers_names_summary_BF8)</code></pre>
 
 #write_xlsx(outliers_T_adapcon_gentree_BAYPASS_BF_8,&quot;C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/outliers/outliers_T_adapcon_gentree_BAYPASS_BF_8.xlsx&quot;)
 save(outliers_T_adapcon_gentree_BAYPASS_BF_8, file=&quot;C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEa_new_var/outliers/outliers_T_adapcon_gentree_BAYPASS_BF_8.Rdata&quot;)</code></pre>
+<p>Other way of identifying outliers: overlapping SNPs of 5 runs like
+for GF and not the mean values of BF.</p>
+<pre class="r"><code>list_clim &lt;- c(&quot;Annual_Tc&quot;,&quot;Diurnal_range_Tc&quot;,&quot;Tc_Seasonality&quot;,&quot;Tc_driest_quarter&quot;,&quot;Annual_P&quot;,&quot;P_Seasonality&quot;)
+list_runs &lt;- c(&quot;RUN_1_BAYPASS_results&quot;,&quot;RUN_2_BAYPASS_results&quot;,&quot;RUN_3_BAYPASS_results&quot;,&quot;RUN_4_BAYPASS_results&quot;,&quot;RUN_5_BAYPASS_results&quot;)
+
+for(x in 1:length(list_runs)){
+
+  data &lt;- get(list_runs[x])
+
+for(i in 1:length(list_clim)){
+  
+  clim_name &lt;- list_clim[i]
+  
+  data_clim &lt;- data %&gt;% filter(climatic_variables..c.1..2.. == clim_name)
+   
+ #BF values &gt; 8
+outliers_BF_8 &lt;- data_clim[,c(12,2,8)] %&gt;% filter(BF.dB.&gt; 8) %&gt;% pull(names_snps) 
+
+ assign(paste0(&quot;Run&quot;,x,&quot;_outliers_BF_8_&quot;,clim_name),outliers_BF_8)
+
+ #BF values &gt; 10
+outliers_BF_10 &lt;- data_clim[,c(12,2,8)] %&gt;% filter(BF.dB.&gt; 10) %&gt;% pull(names_snps) 
+
+ assign(paste0(&quot;Run&quot;,x,&quot;_outliers_BF_10_&quot;,clim_name),outliers_BF_10)
+ 
+  }
+}</code></pre>
+<pre class="r"><code>list_threshold &lt;- c(8,10)
+
+for(i in 1:length(list_threshold)){
+  
+threshold &lt;- list_threshold[i]
+
+for(x in 1:length(list_clim)){
+  
+  clim_var &lt;- list_clim[x]
+  data1 &lt;- get(paste0(&quot;Run&quot;,1,&quot;_outliers_BF_&quot;,threshold,&quot;_&quot;,clim_var))
+  data2 &lt;- get(paste0(&quot;Run&quot;,2,&quot;_outliers_BF_&quot;,threshold,&quot;_&quot;,clim_var))
+  data3 &lt;- get(paste0(&quot;Run&quot;,3,&quot;_outliers_BF_&quot;,threshold,&quot;_&quot;,clim_var))
+  data4 &lt;- get(paste0(&quot;Run&quot;,4,&quot;_outliers_BF_&quot;,threshold,&quot;_&quot;,clim_var))
+  data5 &lt;- get(paste0(&quot;Run&quot;,5,&quot;_outliers_BF_&quot;,threshold,&quot;_&quot;,clim_var))
+  
+  #Select only the candidates identified in all 5 runs
+outliers_set &lt;- Reduce(intersect, list(data1,data2,data3,data4,data5))
+
+  assign(paste0(&quot;outliers_&quot;,clim_var,&quot;_&quot;,threshold),outliers_set)  
+
+  }
+}</code></pre>
+<p>See the final set of outliers</p>
+<pre class="r"><code>list_threshold &lt;- c(8,10) # Replace with your actual threshold values
+clim_vars &lt;- c(&quot;Annual_Tc&quot;, &quot;Diurnal_range_Tc&quot;, &quot;Tc_Seasonality&quot;, &quot;Tc_driest_quarter&quot;, &quot;Annual_P&quot;, &quot;P_Seasonality&quot;)
+
+df_tot_outliers_list &lt;- list()
+
+for (x in 1:length(list_threshold)) {
+  threshold &lt;- list_threshold[x]
+  combined_data &lt;- data.frame()
+
+  for (var in clim_vars) {
+    data &lt;- data.frame(set = get(paste0(&quot;outliers_&quot;, var, &quot;_&quot;, threshold)))
+    data$var &lt;- var
+    combined_data &lt;- rbind(combined_data, data)
+  }
+
+  unique_data &lt;- combined_data[!duplicated(combined_data$set),]  # Ensuring unique rows
+  df_tot_outliers_list[[threshold]] &lt;- unique_data
+
+  assign(paste0(&quot;df_tot_outliers_&quot;, threshold), unique_data)
+}</code></pre>
 
 
 
