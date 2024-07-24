@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = FALSE)
 
-#rm(list = ls())
+rm(list = ls())
 library(here)
 library(dplyr)
 library(tidyr)
@@ -22,8 +22,6 @@ library(geigen)
 library(data.table)
 
 #run the script baypass_R_functions
-
-
 ```
 
 BAYPASS is an outlier detection method developed by Gautier in 2015. The underlying models explicitly account for (and may estimate) the covariance structure among the population allele frequencies that originates from the shared history of the populations. There are 3 models working differently:  
@@ -195,7 +193,7 @@ allele_counts_allele2_no_mac <- df_allele2_no_mac %>%
 ```
 
 
-```{r righ format for BAYPASS covar, message=FALSE, warning=FALSE}
+```{r right format for BAYPASS covar, message=FALSE, warning=FALSE}
 #rename allele_counts_2 to merge them with allele1
 allele_counts_allele2_no_mac$Population <- paste0(allele_counts_allele2_no_mac$Population,"_Allele_2")
 
@@ -287,7 +285,7 @@ SVD_decomposition_omega_matrix <- plot.omega(omega=omega,pop.names=country_names
 
 ```{r Save corrplot, include=FALSE}
 #save
-png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/BAYPASS/SVD_decomposition_omega_matrix.png");SVD_decomposition_omega_matrix <- plot.omega(omega=omega,pop.names=country_names);dev.off()
+png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/BAYPASS/SVD_decomposition_omega_matrix.png");SVD_decomposition_omega_matrix <- plot.omega(omega=omega,pop.names=country_names);dev.off()
 ```
 
 ```{r plot heatmap}
@@ -312,7 +310,7 @@ main=expression("Heatmap of "~hat(Omega)~"("*d[ij]*"=1-"*rho[ij]*")"))
 
 ```{r Save heatmap, include=FALSE}
 #save
-png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA/BAYPASS/Heatmap_omega_matrix.png");Heatmap_omega_matrix<-heatmap(1-cor_mat,hclustfun = hclust_ave,
+png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/BAYPASS/Heatmap_omega_matrix.png");Heatmap_omega_matrix<-heatmap(1-cor_mat,hclustfun = hclust_ave,
 main=expression("Heatmap of "~hat(Omega)~"("*d[ij]*"=1-"*rho[ij]*")"));dev.off()
 
 ```
@@ -508,7 +506,6 @@ list_mean_BF_clim <- c("mean_Annual_Tc_BAYPASS_all_runs_BF_values","mean_Diurnal
 ```
 
 
-
 Then, we can search for candidates using a BF threshold of 10 for each climatic variable. 
 ```{r threshold BF 10}
 
@@ -639,8 +636,88 @@ save(outliers_T_adapcon_gentree_BAYPASS_BF_8, file="C:/Users/tfrancisco/Document
 ```
 
 
+Other way of identifying outliers: overlapping SNPs of 5 runs like for GF and not the mean values of BF. 
+
+```{r calculation of thresholds}
+
+list_clim <- c("Annual_Tc","Diurnal_range_Tc","Tc_Seasonality","Tc_driest_quarter","Annual_P","P_Seasonality")
+list_runs <- c("RUN_1_BAYPASS_results","RUN_2_BAYPASS_results","RUN_3_BAYPASS_results","RUN_4_BAYPASS_results","RUN_5_BAYPASS_results")
+
+for(x in 1:length(list_runs)){
+
+  data <- get(list_runs[x])
+
+for(i in 1:length(list_clim)){
+  
+  clim_name <- list_clim[i]
+  
+  data_clim <- data %>% filter(climatic_variables..c.1..2.. == clim_name)
+   
+ #BF values > 8
+outliers_BF_8 <- data_clim[,c(12,2,8)] %>% filter(BF.dB.> 8) %>% pull(names_snps) 
+
+ assign(paste0("Run",x,"_outliers_BF_8_",clim_name),outliers_BF_8)
+
+ #BF values > 10
+outliers_BF_10 <- data_clim[,c(12,2,8)] %>% filter(BF.dB.> 10) %>% pull(names_snps) 
+
+ assign(paste0("Run",x,"_outliers_BF_10_",clim_name),outliers_BF_10)
+ 
+  }
+}
+```
 
 
+```{r select the overlapping candidates across runs and save them 1%}
+
+list_threshold <- c(8,10)
+
+for(i in 1:length(list_threshold)){
+  
+threshold <- list_threshold[i]
+
+for(x in 1:length(list_clim)){
+  
+  clim_var <- list_clim[x]
+  data1 <- get(paste0("Run",1,"_outliers_BF_",threshold,"_",clim_var))
+  data2 <- get(paste0("Run",2,"_outliers_BF_",threshold,"_",clim_var))
+  data3 <- get(paste0("Run",3,"_outliers_BF_",threshold,"_",clim_var))
+  data4 <- get(paste0("Run",4,"_outliers_BF_",threshold,"_",clim_var))
+  data5 <- get(paste0("Run",5,"_outliers_BF_",threshold,"_",clim_var))
+  
+  #Select only the candidates identified in all 5 runs
+outliers_set <- Reduce(intersect, list(data1,data2,data3,data4,data5))
+
+  assign(paste0("outliers_",clim_var,"_",threshold),outliers_set)  
+
+  }
+}
+```
+See the final set of outliers
+
+```{r set outliers}
+list_threshold <- c(8,10) # Replace with your actual threshold values
+clim_vars <- c("Annual_Tc", "Diurnal_range_Tc", "Tc_Seasonality", "Tc_driest_quarter", "Annual_P", "P_Seasonality")
+
+df_tot_outliers_list <- list()
+
+for (x in 1:length(list_threshold)) {
+  threshold <- list_threshold[x]
+  combined_data <- data.frame()
+
+  for (var in clim_vars) {
+    data <- data.frame(set = get(paste0("outliers_", var, "_", threshold)))
+    data$var <- var
+    combined_data <- rbind(combined_data, data)
+  }
+
+  unique_data <- combined_data[!duplicated(combined_data$set),]  # Ensuring unique rows
+  df_tot_outliers_list[[threshold]] <- unique_data
+
+  assign(paste0("df_tot_outliers_", threshold), unique_data)
+}
+
+```
 
 
 
