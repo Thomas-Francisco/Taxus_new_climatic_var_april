@@ -20,6 +20,7 @@ library(qvalue) #for rdadapt
 library(ggplot2)
 library(radiant.data) #for row_names_to_columns
 library(textshape) #for colnames_to_row.names
+library(writexl)
 ```
 
 **Candidate selection: Redundancy analysis(RDA)**
@@ -78,6 +79,7 @@ screeplot_RDA<- screeplot(RDA_env)
 #explained variance along each RDA axis
 RDA_env$CCA$eig*100/sum(RDA_env$CCA$eig)
 ```
+
 ```{r save screeplot, include=FALSE}
 #save
 png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/screeplot_RDA.png")
@@ -87,18 +89,22 @@ dev.off()
 
 Interpretation: based on this, we will keep the 2 first RDA axis to perform the candidates detection
 
-One interesting things with RDA is that we can plot in the same space the populations (or individuals or genotype depending on our study), the loci and the climatic variables. Here, we represented into the RDA space, the populations and the climatic variable in a biplot.
+One interesting things with RDA is that we can plot in the same space the populations (or individuals or genotype depending on our study), the loci and the climatic variables. Here, we represented into the RDA space, the populations and the climatic variable in a biplot.The position of the populations in this space is the results of their observed genomic compo and not the one predicted by the model (as it is commonly done in articles).
 ```{r population representation RDA space}
 #score along the 2 first RDA axis
 score_climatic_var <- as.data.frame(scores(RDA_env, choices=c(1:2), display="bp"))
-Score_population <- data.frame(RDA_env$CCA$u[,c(1,2)])
+#Score_population <- data.frame(RDA_env$CCA$u[,c(1,2)])
+score_pop_var <- as.data.frame(scores(RDA_env, choices=c(1:2), display="sites",scaling="none"))
 
 #meta_data
 meta_data_pop <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv",h=T,sep=";",dec=",")
 
+#alphabetic order
+meta_data_pop_order <- meta_data_pop[order(meta_data_pop$Population),]
+
 #merge for country info
-Score_population_bis <- rownames_to_column(Score_population,"Population")
-score_with_country_info <- merge(Score_population_bis,meta_data_pop[,c(1,2)],"Population")
+Score_population_bis <- rownames_to_column(score_pop_var,"Population")
+score_with_country_info <- merge(Score_population_bis,meta_data_pop_order[,c(1,2)],"Population")
 score_with_country_info$Country <- as.factor(score_with_country_info$Country)
 
 #explained variance along each RDA axis
@@ -127,6 +133,8 @@ biplot_populations <- ggplot() +
 
  print(biplot_populations)
 ```
+
+
 ```{r save biplot indiv, include=FALSE}
  #save
 pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/biplot_RDA_populations.pdf");print(biplot_populations);dev.off()
@@ -161,11 +169,15 @@ genome_scan_RDA <- rdadapt(RDA_env,K=2) #the K is equal to the number of RDA axi
 pvalues_RDA_snp <- data.frame(snp_names=colnames(genomic_matrix),pvalues= genome_scan_RDA$p.values)
 save(pvalues_RDA_snp,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA_new_var/pvalues_RDA_snp.Rdata" )
 
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA_new_var/pvalues_RDA_snp.Rdata")
+write_xlsx(pvalues_RDA_snp,"C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA_new_var/pvalues_RDA_snp.xlsx")
+
 #plot the distribution of pvalues 
 Histogram_of_Pvalues_RDA<- hist(genome_scan_RDA$p.values,
      main= "Histogram of RDA P-values",
      xlab= "P-values")
 ```
+
 ```{r save pval distrib, include=FALSE}
 #save the histogram
  png(filename="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/Histogram_of_Pvalues_RDA.png");Histogram_of_Pvalues_RDA<- hist(genome_scan_RDA$p.values,
@@ -273,6 +285,7 @@ score_loci_outliers <- score_loci_outliers[order(score_loci_outliers$FDR5),]
  
  print(biplot_outliers_RDA)
 ```
+
 ```{r save biplot, message=FALSE, warning=FALSE, include=FALSE}
  #save
 pdf("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/RDA/biplot_outliers_RDA_FDR_5perc.pdf");print(biplot_outliers_RDA);dev.off()
