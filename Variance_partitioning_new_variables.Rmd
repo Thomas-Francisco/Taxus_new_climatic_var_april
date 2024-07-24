@@ -197,7 +197,7 @@ M_IBE_db <- rda(formula = genomic_matrix ~  Annual_Tc+Diurnal_range_Tc+Tc_Season
 ```
 Interpretation:   
 R^2 tot     : 0.59                     Adj R^2 tot     : 0.28    
-R^2 ancestry: 0.10                     Adj R^2 ancestry: 0.08  
+R^2 ancestry: 0.11                     Adj R^2 ancestry: 0.08  
 R^2 IBD     : 0.13                     Adj R^2 IDB     : 0.04  
 R^2 climate : 0.18                     Adj R^2 climate : 0.03  
 
