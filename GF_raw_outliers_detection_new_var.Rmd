@@ -9,10 +9,11 @@ This script will perform the outlier detection using gradient forest.
  
 Gradient forest is a machine learning methods introduce by Ellis, Smith and Pitcher, 2012. Fitzpatrick & Keller (2015) described how GF can be used to (1) analyze and map spatial variation in allele frequencies as a function of environmental gradients and (outliers detection and GEA) (2) project patterns of genomic variation under future climate (genomic offset).
 More precisely, "GF uses Random Forest to fit an ensemble of regression trees to model change in allele frequencies across sites and derive monotonic, nonlinear functions of environmental predictors. The empirical, nonlinear turnover functions are constructed by distributing the R^2 values from all SNPs among the predictor gradients in proportion to their accuracy importance and along each gradient according to the density of the raw split importance values. The split importance values for all modeled SNPs also are aggregated to an overall, genome-wide turnover function for each variable using weightings based on predictor importance and the goodness-of-fit for each SNP model" Fitzpatrick et al. (2021).
-GF is a multivariate methods because it can handle multiple climatic variable at the same times but only one SNP per SNP.(RDA is also a multivariate methods because of that and also it can handle several response variables at the same time -> unique method that does that, LFMM can be univariate for both or same as GF, BAYPASS univariate).
+GF is a univariate/ multivariate methods because it's working using random trees for one response variable and one predictor at a time but then can summarize the information into cumulative importance turnover functions that can give results for multiple climatic variable at the same times for one SNP. Then, GF can apply the same process to response variable to sum the info across response variable to see the turnover function of the explanatory variables on the responses one.(See Ellis et al 2012 for further information)
+(RDA is also a multivariate methods because of that and also it can handle several response variables at the same time -> unique method that does that, LFMM can be univariate for both or same as GF, BAYPASS univariate).
 
 In this script, we will use the GF algorithm for outlier detection following Fitzpatrick et al. (2021) and Archambeau et al. (2024).
-We will perform the GF on a genomic dataset corrected and non-corrected for population structure (see script GF_corrected_outliers_detection)
+We will perform the GF on a genomic dataset corrected and non-corrected for population structure (see script GF_corrected_outliers_detection). We will use the GF method for each SNPs, so we will have a turnover function for each snps using all predictors. 
 
 To evaluate for each locus their association with climatic variables, we will compute empirical pvalues. These pvalues are calculated by comparing a null distribution of R^2 with the R^2 values of each locus and the more the R^2 values are away from the distribution, the more the pvalues is low.
 To compute these pvalues, the first step is to select the SNP set that will be used to compute the null distribution.
@@ -69,8 +70,6 @@ Steps 2,3 are not showed in details here because we created a function do these 
 In this step, we will perform the GF 5 times because as explained above, the candidates can vary from one run to another due to the nature of the analysis (machine learning). (Moreover, the random null distribution could randomly select candidates so in order to take into account that, we will select for each runs the candidates identified by at least 2 of the 5 null distribution).
 
 ```{r function to perform the GF and output the results in 1 code, message=FALSE, warning=FALSE}
-
-
 Run_GF_and_select_outliers <- function(genomic_matrix, climatic_data, ntree, cores,nbr_loci_distrib,vars,x,path){
 
   #GF function

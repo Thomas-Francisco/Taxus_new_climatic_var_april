@@ -13,6 +13,7 @@ library(dplyr)
 library(genetics)#LD function
 library(corrplot)
 library(tidyr)
+library(writexl)
 
 ```
 
@@ -33,13 +34,13 @@ In this script, we will select outliers based on the less conservatives candidat
 
 ```{r load data}
 #names of the files
-list_data <- c("outliers_RDA_FDR10perc_T_Adapcon_gentree","outliers_pRDA_FDR10perc_T_Adapcon_gentree","outliers_T_adapcon_gentree_BAYPASS_BF_8","outliers_T_adapcon_gentree_LFMM_10perc","outliers_rank_based_top5perc_GF_raw")
+list_data <- c("outliers_RDA_FDR10perc_T_Adapcon_gentree","outliers_pRDA_FDR10perc_T_Adapcon_gentree","outliers_T_adapcon_gentree_BAYPASS_BF_8","outliers_T_adapcon_gentree_LFMM_10perc","outliers_rank_based_top5perc_GF_raw","outliers_rank_based_top5perc_GF_corrected")
 
 #name of the output
-names_set <- c("RDA","pRDA","BAYPASS","LFMM","GF")
+names_set <- c("RDA","pRDA","BAYPASS","LFMM","GF_raw","GF_corrected")
 
 #load data
-for(x in 1:5){
+for(x in 1:length(names_set)){
   set <- list_data[x]
   load(paste0("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/",set,".Rdata"))
   name <- names_set[x]
@@ -51,16 +52,22 @@ assign(paste0(name,"_set"),get(set))
 We need to put every set into a list
 ```{r format sets}
 #list of candidates
-list_candidates<-list(RDA=RDA_set[,1],pRDA=pRDA_set[,1],BAYPASS=BAYPASS_set[,1],LFMM=LFMM_set[,1],GF=GF_set)
+list_candidates<-list(RDA=RDA_set[,1],pRDA=pRDA_set[,1],BAYPASS=BAYPASS_set[,1],LFMM=LFMM_set[,1],GF_raw=GF_raw_set,GF_corrected=GF_corrected_set)
 ```
 
+```{r all_outliers}
+#list snps_names
+list_all_candidates_snps <- unlist(list_candidates)
 
+list_all_candidates_snps_LC <- data.frame(list_all_candidates_snps)
+write_xlsx(list_all_candidates_snps_LC,path="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/set/list_all_candidates_snps_LC.xlsx") 
+```
 
 we can represent in a venn diagram to visualize the overlapping candidates
 ```{r venn.diagram, message=FALSE, warning=FALSE, include=FALSE}
   venn.diagram(x = list_candidates,
-        category.names = c("RDA" ,"pRDA","BAYPASS","LFMM","GF"),
-        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/figure/venn_diagramm_candidates_relax_set.png",fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE"),
+        category.names = c("RDA" ,"pRDA","BAYPASS","LFMM","GF_raw","GF_corrected"),
+        filename = "C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/figure/venn_diagramm_candidates_relax_set.png",fill = c("#45B6AA","#D45176","#91A6CE","#86AD4C","#33A5CE","pink"),
 alpha = 0.30,
 print.mode=c("raw"),
 imagetype="png",
@@ -70,7 +77,21 @@ margin = 0.1,  # Adjust the margins
                     cat.fontsize = 16,
                     main= "Venn Diagram across GEAs methods",
                     main.fontface = "bold")
+
 ```
+
+```{r}
+ggVennDiagram(list_candidates, 
+              category.names = c("RDA", "pRDA", "BAYPASS", "LFMM", "GF_raw", "GF_corrected"),
+              fill = c("#45B6AA", "#D45176", "#91A6CE", "#86AD4C", "#33A5CE", "pink"),
+              alpha = 0.30,
+              label = "count") + # Show counts, not percentages
+  ggtitle("Venn Diagram across GEAs methods") +
+  theme(legend.position = "right",
+        legend.text = element_text(size = 12)) +
+  theme_void() # Remove percentage information
+```
+
 
 ```{r venn diagram plot, message=FALSE, warning=FALSE}
 grid.newpage()
@@ -90,17 +111,22 @@ Now, we can make a dataframe with only the overlapping candidate of at least 2 m
 ```{r Overlapping snp of at least 2 methods}
 comm_RDA_pRDA <- data.frame(outliers=list_candidates[c("RDA","pRDA")] %>% Reduce(intersect, .))
 comm_RDA_BAYPASS <- data.frame(outliers=list_candidates[c("RDA","BAYPASS")] %>% Reduce(intersect, .))
-comm_RDA_GF <- data.frame(outliers=list_candidates[c("GF","RDA")] %>% Reduce(intersect, .))
+comm_RDA_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","RDA")] %>% Reduce(intersect, .))
 comm_RDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","RDA")] %>% Reduce(intersect, .))
 comm_pRDA_BAYPASS <- data.frame(outliers=list_candidates[c("pRDA","BAYPASS")] %>% Reduce(intersect, .))
-comm_pRDA_GF <- data.frame(outliers=list_candidates[c("GF","pRDA")] %>% Reduce(intersect, .))
+comm_pRDA_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","pRDA")] %>% Reduce(intersect, .))
 comm_pRDA_LFMM <- data.frame(outliers=list_candidates[c("LFMM","pRDA")] %>% Reduce(intersect, .))
-comm_BAYPASS_GF <- data.frame(outliers=list_candidates[c("GF","BAYPASS")] %>% Reduce(intersect, .))
+comm_BAYPASS_GF_raw <- data.frame(outliers=list_candidates[c("GF_raw","BAYPASS")] %>% Reduce(intersect, .))
 comm_BAYPASS_LFMM <- data.frame(outliers=list_candidates[c("LFMM","BAYPASS")] %>% Reduce(intersect, .))
-comm_GF_LFMM <- data.frame(outliers=list_candidates[c("GF","LFMM")] %>% Reduce(intersect, .))
+comm_GF_raw_LFMM <- data.frame(outliers=list_candidates[c("GF_raw","LFMM")] %>% Reduce(intersect, .))
+comm_GF_corrected_LFMM <- data.frame(outliers=list_candidates[c("GF_corrected","LFMM")] %>% Reduce(intersect, .))
+comm_BAYPASS_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","BAYPASS")] %>% Reduce(intersect, .))
+comm_pRDA_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","pRDA")] %>% Reduce(intersect, .))
+comm_RDA_GF_corrected <- data.frame(outliers=list_candidates[c("GF_corrected","RDA")] %>% Reduce(intersect, .))
+comm_GF_corrected_GF_raw <- data.frame(outliers=list_candidates[c("GF_corrected","GF_raw")] %>% Reduce(intersect, .))
 
 
-outliers_set <- data.frame(rbind(comm_RDA_pRDA,comm_RDA_BAYPASS,comm_RDA_GF,comm_RDA_LFMM,comm_pRDA_BAYPASS,comm_pRDA_GF,comm_pRDA_LFMM,comm_BAYPASS_GF,comm_BAYPASS_LFMM,comm_GF_LFMM)) %>% unique()
+outliers_set <- data.frame(rbind(comm_RDA_pRDA,comm_RDA_BAYPASS,comm_RDA_GF_raw,comm_RDA_LFMM,comm_pRDA_BAYPASS,comm_pRDA_GF_raw,comm_pRDA_LFMM,comm_BAYPASS_GF_raw,comm_BAYPASS_LFMM,comm_GF_raw_LFMM,comm_GF_corrected_LFMM,comm_BAYPASS_GF_corrected,comm_pRDA_GF_corrected,comm_RDA_GF_corrected,comm_GF_corrected_GF_raw)) %>% unique()
 
 #number of candidates identified by at least 2 methods
 nrow(outliers_set)
@@ -206,4 +232,39 @@ The final number of outliers retained for further analysis is 98.
 ```{r save the final outliers set, include=FALSE}
 #save it 
 save(outliers_set_final_overlapping_no_LD_LC_new_var, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_set_final_overlapping_no_LD_LC_new_var.Rdata")
+
+outliers_set_final_overlapping_no_LD_LC_new_var_df <- data.frame(outliers_set_final_overlapping_no_LD_LC_new_var)
+
+write_xlsx(outliers_set_final_overlapping_no_LD_LC_new_var_df,path="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/set/outliers_set_final_overlapping_no_LD_LC_new_var_df.xlsx")
 ```
+
+
+We can also extract the random set of snps that will be used to calculate GO and compare with candidates markers. 
+To do this set, we need to randomly select the same number of SNPs as the candidates set (the less conservative one here) in the full data set of SNPs after removing all the candidates snps identified by at least 1 GEA method. 
+
+We need to remove from the all dataset the candidates snps
+
+
+```{r neutral set of SNPs}
+#load genomic data
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/data_allelic_frequencies_29pop_adapcon_gentree_475_8616.Rdata")
+
+genomic_matrix <- data_allelic_frequencies_29pop_adapcon_gentree_475_8616  
+
+remaining_columns <- setdiff(names(genomic_matrix), list_all_candidates_snps)
+
+# Subset the data frame using the remaining columns
+neutral_set_outliers <- genomic_matrix[ , remaining_columns]
+
+```
+
+Now that we have the neutral set, we can randomly select the same number of SNPs as the candidate set used in GO calculation
+
+```{r set of random SNPs}
+set.seed(99)
+nb_candidates <- 100
+random_neutral_set_SNPs_T_adapcon_gentree <- sample(neutral_set_outliers,nb_candidates,replace = F)
+
+save(random_neutral_set_SNPs_T_adapcon_gentree, file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/random_neutral_set_SNPs_T_adapcon_gentree.Rdata")
+```
+

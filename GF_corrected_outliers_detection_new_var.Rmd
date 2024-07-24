@@ -274,7 +274,7 @@ slice(1:(0.01*nrow(data))) %>%  #slice(1:(0.01*nrow(.)))
  
  assign(paste0("Run",i,"_top1SNP"),outliers_top1perc_GF)
  
-   #top 0.5%
+   #top 5%
  outliers_top0.5perc_GF <- data[,c(1,15)] %>% 
   arrange(pval_totalR2) %>%
 slice(1:(0.05*nrow(data))) %>%  #slice(1:(0.01*nrow(.)))
@@ -414,6 +414,8 @@ margin = 0.1,  # Adjust the margins
 Globally, we can see that only a very small part of all the SNPs identified as candidates are common across runs. This result inform us that using GF as candidates detection methods corrected for population structure is maybe not the best method. 
 We will not use the candidates identified across runs by GF-corrected.
 
+    Top 1%: 
+
 ```{r select the overlapping candidates across runs and save them}
 
 #Select only the candidates identified in all 5 runs
@@ -427,3 +429,18 @@ length(outliers_rank_based_top1perc_GF_corrected)
 save(outliers_rank_based_top1perc_GF_corrected,file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_rank_based_top1perc_GF_corrected.Rdata", force=T)
 ```
 
+
+    Top 5%: 
+
+```{r select the overlapping candidates across runs and save them 5%}
+
+#Select only the candidates identified in all 5 runs
+outliers_rank_based_top5perc_GF_corrected <- Reduce(intersect, list(Run1_top5SNP[,1], Run2_top5SNP[,1], Run3_top5SNP[,1], Run4_top5SNP[,1], Run5_top5SNP[,1]))
+
+length(outliers_rank_based_top5perc_GF_corrected)
+```
+
+```{r save top 5 perc, include=FALSE}
+#save
+save(outliers_rank_based_top5perc_GF_corrected,file="C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/outliers/outliers_rank_based_top5perc_GF_corrected.Rdata", force=T)
+```    

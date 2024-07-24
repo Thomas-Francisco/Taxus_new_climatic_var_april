@@ -86,18 +86,22 @@ png("C:/Users/tfrancisco/Documents/Thèse/Results/species/taxus/GEA_new_var/pRDA
 
 Interpretation: based on this, we will keep the 2 first RDA axis to perform the candidate detection
 
-Then, we can plot the position of each populations in the RDA space. 
+Then, we can plot the position of each populations in the RDA space. We used the observed scores of the populations along the RDA axis and not the predicted ones. 
 ```{r population representation pRDA space}
 #score along the 2 first RDA axis
 score_climatic_var <- as.data.frame(scores(pRDA_env, choices=c(1:2), display="bp"))
-Score_population <- data.frame(pRDA_env$CCA$u[,c(1,2)])
+#Score_population <- data.frame(pRDA_env$CCA$u[,c(1,2)])
+score_pop_var <- as.data.frame(scores(pRDA_env, choices=c(1:2), display="sites",scaling="none"))
 
 #meta_data
 meta_data_pop <- read.csv("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Populations/taxus_sample_29pop.csv",h=T,sep=";",dec=",")
 
+#alphabetic order
+meta_data_pop_order <- meta_data_pop[order(meta_data_pop$Population),]
+
 #merge for country info
-Score_population_bis <- rownames_to_column(Score_population,"Population")
-score_with_country_info <- merge(Score_population_bis,meta_data_pop[,c(1,2)],"Population")
+Score_population_bis <- rownames_to_column(score_pop_var,"Population")
+score_with_country_info <- merge(Score_population_bis,meta_data_pop_order[,c(1,2)],"Population")
 score_with_country_info$Country <- as.factor(score_with_country_info$Country)
 
 #explained variance along each RDA axis

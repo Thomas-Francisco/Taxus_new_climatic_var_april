@@ -7,7 +7,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = FALSE)
 
-rm(list = ls()) 
+#rm(list = ls()) 
 
 library(dplyr) 
 library(tidyverse)
@@ -18,6 +18,7 @@ library(raster)
 library(vegan)
 library(plyr)
 library(writexl)
+library(rasterize)
 ```
 
 ```{r meta data}
@@ -30,6 +31,7 @@ This script is separate in multiples steps:
 - Pre-selection of climatic variables and visualization between pop (see if adaptive gradients could emerge)  
 - Loading climatic data and processing them  
 - Selection of climatic variables: explained genetic variance, check multicollinearity between variables and VIF  
+- Present climatic data: processing
 - Future climatic data: processing and comparison of the different climatic models 
 - Standardization of the retained climatic values  
 
@@ -59,14 +61,13 @@ Also, only 1 model is available in CLimateDT for future data. Or, we know that c
       
 So based on these previous scripts, **we will use the 1901-1950 period and raster data because the differences between raster values and layer of points are important for temperature related climatic variable. Indeed, for future data we need to use the raster as explained previously so it's better if we use also raster data for past climatic data to avoid differences in climate linked to the method of extraction.** 
 
-      - Load the past climatic data
-
-```{r load raster data}
+      - Load past climatic data 
+      
+```{r load past raster data}
 #create an R object where all the climatic rasters are.
 ras.bio <- stack(list.files("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1901-1950_raster/", pattern = ".tif$", full.names = T)) 
 #names of the raster (because they are not in the classic order Bio 1, 2 etc they are order by number so bio 1, 10, 11 etc)
 names(ras.bio) <- unlist(strsplit(unlist(lapply(strsplit(list.files("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1901-1950_raster/", pattern = ".tif$", full.names = T), split = "C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1901-1950_raster/"), function(x) x[2])), split = ".tif"))
-
 
 #we extracted the climatic values for each populations from the raster based on their coordinates
 coords<- data.frame(apply(meta_data_pop[,c(5:4)], 2, as.numeric))#we need to have longitude then latitude
@@ -75,6 +76,12 @@ colnames(past_climatic_data_raster)<- c("Population",names(ras.bio))
 
 #add country info 
 past_climatic_data_f <- merge(meta_data_pop[,c(1,2)],past_climatic_data_raster, "Population")
+```
+
+We need to save the raster for RDA GO
+```{r save raster for GO RDA}
+past_climatic_data_raster <- ras.bio
+save(past_climatic_data_raster,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Genomic_offset/RDA/past_climatic_data_raster.Rdata")
 ```
 
       - Variation of the variables between populations
@@ -250,8 +257,55 @@ Conclusion: we retained the subset: **BIO 1, 2, 4, 9, 12, 15** :
     - Bio 9: Mean Temperature of Driest Quarter (°C)
     - Bio 12: Mean annual Precipitation (mm)
     - Bio 15: Precipitation Seasonality (mm)
-   
-  **4. Future climatic data: processing and comparison of the different climatic models**
+    
+    
+  **4. Present climatic data: processing**
+  
+In order to validate the GO predictions, we need to calculate a genomic offset with present data from the local habitat of the pop and the clonal bank. 
+To do that, we need the present climatic data. We will create a raster with he 6 bioclimatic variables retained above.  
+         
+```{r load present raster data}
+#create an R object where all the climatic rasters are.
+ras.bio <- stack(list.files("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1991-2020_raster_climateDT/", pattern = ".tif$", full.names = T)) 
+#names of the raster (because they are not in the classic order Bio 1, 2 etc they are order by number so bio 1, 10, 11 etc)
+names(ras.bio) <- unlist(strsplit(unlist(lapply(strsplit(list.files("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1991-2020_raster_climateDT/", pattern = ".tif$", full.names = T), split = "C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/1991-2020_raster_climateDT/"), function(x) x[2])), split = ".tif"))
+
+#we extracted the climatic values for each populations from the raster based on their coordinates
+coords<- data.frame(apply(meta_data_pop[,c(5:4)], 2, as.numeric))#we need to have longitude then latitude
+present_climatic_data_Adapon_pop <- data.frame(meta_data_pop$Population,raster::extract(ras.bio, coords))#important to add raster:: because this function is also in tidyr and will not do the same things
+colnames(present_climatic_data_Adapon_pop)<- c("Population",names(ras.bio))
+
+#add country info 
+present_climatic_data_Adapon_pop_f <- merge(meta_data_pop[,c(1,2)],present_climatic_data_Adapon_pop, "Population")
+
+#order
+Present_new_6_Climatic_data_scale <-present_climatic_data_Adapon_pop_f[,c(1,2,3,6:8,4,5)]
+
+#name bio 
+colnames(Present_new_6_Climatic_data_scale) <- c("Population","Country","Annual_Tc","Diurnal_range_Tc","Tc_Seasonality","Tc_driest_quarter","Annual_P","P_Seasonality")
+
+#scale 
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/scale_env_value_new_cli.Rdata")
+load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/center_env_value_new_cli.Rdata")
+
+Present_climatic_data_T_adapcon_gentree_scaled <- data.frame(Present_new_6_Climatic_data_scale[,c(1,2)],scale(Present_new_6_Climatic_data_scale[,-c(1,2)], center = center_env_value_new_cli, scale = scale_env_value_new_cli))
+
+
+
+
+```
+
+We need to save the raster for RDA GO
+```{r save raster for GO RDA}
+#raster
+present_climatic_raster <- ras.bio
+save(present_climatic_raster,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/validation_GO/climatic_data/present_climatic_raster.Rdata")
+#dataframe
+write_xlsx(Present_climatic_data_T_adapcon_gentree_scaled ,path="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/validation_GO/climatic_data/Present_climatic_data_T_adapcon_gentree_scaled.xlsx")
+```
+For gradient forest genomic offset, we will need to extract as above the climatic conditions for the clonal bank for each pop (one csv file with "future" condition are the one of the clonal bank site)
+
+  **5. Future climatic data: processing and comparison of the different climatic models**
   
   Multiple climatic models that predict the future climate are available. Choosing one of them could lead to imprecision because sometimes the difference in prediction are important. To avoid bias by selecting only one climatic model that could be an extreme, we selected 5 of them for the future data. 
 We want to compare them to see if there is a lot a differences in predictions between models. 
@@ -286,6 +340,7 @@ future_climatic_data_f <- merge(meta_data_pop[,c(1,2)],future_climatic_data, "Po
 assign(paste0("Future_data_",model), future_climatic_data_f)
 }
 ```
+
 
 The next step is to group by climatic variables the data across climatic models
 ```{r creata 1 df per bio}
@@ -407,8 +462,9 @@ Future_climatic_data_T_adapcon_gentree<- data.frame(Population=df_bio1_mean[,1],
 We standardized the past and future data with the same values to enable comparison of indexes between past and future based on the climatic data (e.g Adaptive index, genomic offset...)
 
 ```{r normalize the past data, message=FALSE, warning=FALSE}
+#dataframe not scaled
+Past_clim_data_Europe_pop <- past_climatic_data_order[,c(1:4,6,10,12,15)]
 #creation of the scaled matrix
-
 Past_new_6_Climatic_data_scale <-past_climatic_data_order[,c(3,4,6,10,12,15)] %>% 
     scale()
 
@@ -427,12 +483,49 @@ center_env_value_new_cli <- attr(scale(df_to_scale), 'scaled:center')
 
 ```{r save past climatic data, include=FALSE}
 #Save the matrix and the normalized values
+#non scaled data
+save(Past_clim_data_Europe_pop,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_clim_data_Europe_pop.Rdata" )
+
+#scaled data
 write_xlsx(Past_new_6_Climatic_data_scale_df,"C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_new_6_Climatic_data_scale_df.xlsx")
 save(Past_new_6_Climatic_data_scale_df,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/Past_new_6_Climatic_data_scale_df.Rdata")
+
+#Save the values used to scaled
 save(scale_env_value_new_cli,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/scale_env_value_new_cli.Rdata",force=T)
 save(center_env_value_new_cli,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Climatic_data/new_selection/center_env_value_new_cli.Rdata",force=T)
-
 ```
+
+
+
+We also need to save the future climatic data into a raster: 
+
+```{r data_to_be_used_raster}
+Past_new_6_Climatic_data_df <- data.frame(past_climatic_data_order[,c(1,2)],past_climatic_data_order[,c(3,4,6,10,12,15)])
+
+past_clim_data <- data.frame(merge(meta_data_pop[,c(2,4,5)],Past_new_6_Climatic_data_df[,c(1,3,7,8,4:6)],"Population"))
+# we need to rename colnames for raster
+past_clim_data$Latitude <- as.numeric(past_clim_data$Latitude);past_clim_data$Longitude <- as.numeric(past_clim_data$Longitude)
+Past_clim_data_new <- data.frame(past_clim_data[,c(3,2)],past_clim_data[,c(4:9)])
+
+colnames(Past_clim_data_new) <- c('x', 'y',"bio1", "bio12", "bio15","bio2","bio4","bio9")
+```
+
+
+```{r rasterization}
+# create a raster object with the extent of the data
+r_obj <- raster(xmn=min(Past_clim_data_new$x)-0.1, xmx=max(Past_clim_data_new$x)+0.1, ymn=min(Past_clim_data_new$y)-0.1, ymx=max(Past_clim_data_new$y)+0.1, resolution=c(0.01,0.01)) #the resolution is smaller than what we have in meta_data_pop
+
+# use rasterize to create desired raster with the pop and their values
+Past_climatic_data_raster <- rasterize(x=Past_clim_data_new[, 1:2], # lon-lat data
+                    y=r_obj, # raster object
+                    field=Past_clim_data_new[, 3:8], # clim var to fill raster with
+                    fun=mean) # aggregate function
+```
+
+```{r save raster futut data, include=FALSE}
+save(Past_climatic_data_raster,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Genomic_offset/RDA/Past_climatic_data_raster.Rdata",F=T)
+```
+
 
 
 We finally can scale the future climatic data using the mean and sd of the past climatic data. 
@@ -455,7 +548,122 @@ save(Future_climatic_data_T_adapcon_gentree_scaled,file="C:/Users/tfrancisco/Doc
 
 ```
 
+We also need to save the future climatic data into a raster: 
 
+```{r data_to_be_used_raster}
+Future_clim_data <- data.frame(merge(meta_data_pop[,c(2,4,5)],Future_climatic_data_T_adapcon_gentree[,c(1,3,7,8,4:6)],"Population"))
+# we need to rename colnames for raster
+Future_clim_data$Latitude <- as.numeric(Future_clim_data$Latitude);Future_clim_data$Longitude <- as.numeric(Future_clim_data$Longitude)
+Future_clim_data_new <- data.frame(Future_clim_data[,c(3,2)],Future_clim_data[,c(4:9)])
+
+colnames(Future_clim_data_new) <- c('x', 'y',"bio1", "bio12", "bio15","bio2","bio4","bio9")
+```
+
+
+```{r rasterization}
+# create a raster object with the extent of the data
+r_obj <- raster(xmn=min(Future_clim_data_new$x)-0.1, xmx=max(Future_clim_data_new$x)+0.1, ymn=min(Future_clim_data_new$y)-0.1, ymx=max(Future_clim_data_new$y)+0.1, resolution=c(0.01,0.01)) #the resolution is smaller than what we have in meta_data_pop
+
+# use rasterize to create desired raster with the pop and their values
+future_climatic_data_raster <- rasterize(x=Future_clim_data_new[, 1:2], # lon-lat data
+                    y=r_obj, # raster object
+                    field=Future_clim_data_new[, 3:8], # clim var to fill raster with
+                    fun=mean) # aggregate function
+```
+
+```{r save raster futut data, include=FALSE}
+save(future_climatic_data_raster,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Genomic_offset/RDA/future_climatic_data_raster.Rdata",F=T)
+```
+
+
+Mean raster
+```{r create 1 list for each bio from each models}
+
+library(raster)
+
+# List of climatic variables
+list_climatic_var <- c("bio1", "bio2","bio4", "bio9","bio12","bio15")  # Add more variables as needed
+
+# List of climatic models
+list_models <- c("GFDL_ESM4", "IPSL_CM6A_LR", "MPI_ESM1_2_HR", "MPI_ESM2_0", "UKESM1_0_LL")
+
+# Create empty lists to store rasters for each variable
+bio1_rasters <- list()
+bio2_rasters <- list()
+bio4_rasters <- list()
+bio9_rasters <- list()
+bio12_rasters <- list()
+bio15_rasters <- list()
+
+for (var_clim in list_climatic_var) {
+  for (model in list_models) {
+    # Create file path
+    file_path <- paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/Future_climate/2041_2070_", model, "_ssp370/", var_clim, ".tif")
+    
+    # Read raster
+    raster_data <- raster(file_path)
+    
+    # Store raster in corresponding list based on variable
+    if (var_clim == "bio1") {
+      bio1_rasters[[model]] <- raster_data
+    } else if (var_clim == "bio2") {
+      bio2_rasters[[model]] <- raster_data
+    } else if (var_clim == "bio4
+               ") {
+      bio4_rasters[[model]] <- raster_data
+    } else if (var_clim == "bio9") {
+      bio9_rasters[[model]] <- raster_data
+    } else if(var_clim =="bio12"){
+      bio12_rasters[[model]] <- raster_data
+    } else if(var_clim =="bio15"){
+      bio15_rasters[[model]] <- raster_data
+    }
+  }
+}
+
+```
+
+
+```{r calculate mean raster}
+
+calculate_mean_raster <- function(raster_list) {
+  raster_stack <- stack(raster_list)
+  mean_raster <- calc(raster_stack, mean)
+  return(mean_raster)
+}
+
+list_raster_to_mean <- c("bio1_rasters","bio2_rasters","bio4_rasters","bio9_rasters","bio12_rasters","bio15_rasters")
+name_file <- c("bio1","bio2","bio4","bio9","bio12","bio15")
+for(x in 1:length(list_raster_to_mean)){
+  
+  var <- get(list_raster_to_mean[x])
+  # Calculate mean raster for each climatic variable
+mean_bio <- calculate_mean_raster(var)
+name_file_use <- name_file[x]
+
+assign(name_file_use,mean_bio)  
+}
+```
+
+```{r save raster mean file}
+for(x in 1:length(name_file)){
+  var <- name_file[x]
+  writeRaster(get(var), paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/Mean_future_raster/",var), format="GTiff")
+}
+```
+
+Now, we can load the folder with raster and create the raster stack with all the climatic variables
+
+```{r create the file with six rasters and save file}
+future_climatic_data_raster <- stack(list.files(paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/Mean_future_raster/"), pattern = ".tif$", full.names = T)) 
+
+past_climatic_data_raster <- data.frame(meta_data_pop$Population,raster::extract(future_climatic_data_raster, coords))#important to add raster:: because
+#names of the raster (because they are not in the classic order Bio 1, 2 etc they are order by number so bio 1, 10, 11 etc)
+names(future_climatic_data_raster) <- unlist(strsplit(unlist(lapply(strsplit(list.files(paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/Mean_future_raster/"), pattern = ".tif$", full.names = T), split = paste0("C:/Users/tfrancisco/Documents/Thèse/Data/Climatic/Mean_future_raster/")), function(x) x[2])), split = ".tif"))
+
+#save file
+save(future_climatic_data_raster,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/Genomic_offset/RDA/future_climatic_data_raster.Rdata",F=T)
+```
 
 
 We also for LFMM analysis, have to do a dataframe with climatic values at the individual level: with individuals of the same pop having the same climatic values. 
