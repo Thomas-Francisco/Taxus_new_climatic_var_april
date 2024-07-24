@@ -53,12 +53,14 @@ Na_snp=0.85 #% of Na per SNP,  0.85 = we kept only snp with less than 15% of mis
 Na_indiv=0.15#% of Na per individual, 0.15 = we kept only individuals with less than 15% of missing data
 
 
-#vcf_filter_structure <- vcf %>% 
-#  hard_filter(depth=min_dp ) %>% 
-#  max_depth(maxdepth =max_dp )%>% 
-#  filter_allele_balance(min.ratio=Allele_balance_min,max.ratio=Allele_balance_max)%>% 
-#  missing_by_snp(cutoff=Na_snp)%>%
-#  missing_by_sample( cutoff = Na_indiv )
+vcf_filter_structure <- vcf %>% 
+  hard_filter(depth=min_dp ) %>% 
+  max_depth(maxdepth =max_dp )%>% 
+  filter_allele_balance(min.ratio=Allele_balance_min,max.ratio=Allele_balance_max)%>% 
+  missing_by_snp(cutoff=Na_snp)%>%
+  missing_by_sample( cutoff = Na_indiv )
+
+vcfR::write.vcf(vcf_filter_structure, file = "C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/script_filtering(not_running_it_each_time)/bayescan.vcf.gz")
 ```
 
 ```{r save the filtered pop file, eval=FALSE, include=FALSE}
@@ -80,7 +82,6 @@ Load file to gain time by not running the filters each time:
 load("C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/script_filtering(not_running_it_each_time)/vcf_filter_structure.Rdata")
 ```
 
- 
 These results are used to output 2 types of datasets to study the population structure: 
 
     - Structure
@@ -168,17 +169,58 @@ Dataset_PCA_8252SNP_452IND <- data.frame(row.names(vcf_data),apply(Data_geno_no_
 na_percentage_indiv <- rowMeans(is.na(Dataset_PCA_8252SNP_452IND[,-c(1)])) * 100
 ```
 
-Finnaly, we can save the desired file for PC analysis. 
+Finally, we can save the desired file for PC analysis. 
 ```{r output dataset}
 
 Dataset_PCA_8252SNP_452IND$na_percentage_indiv <- na_percentage_indiv
 names(Dataset_PCA_8252SNP_452IND)[names(Dataset_PCA_8252SNP_452IND) == 'row.names.vcf_data.'] <- 'VCF_ID'
 
-
 #save the genetic dataset 
 save(Dataset_PCA_8252SNP_452IND,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/structure/Dataset_PCA_8252SNP_452IND.Rdata")
 ```
 
+
+
+We also need to calculate the allelic frequencies for the PCA at the population level
+
+```{r allelic frequency }
+#add VCF_ID but normally it will be in the imputated file
+Gen_matrix_non_imputed_T_adapcon_gentree_8252_452 <- Dataset_PCA_8252SNP_452IND[,-8254]
+
+
+#data for allelic frequencies 
+data_frequencies <-merge(meta_data_vcf,Gen_matrix_non_imputed_T_adapcon_gentree_8252_452,"VCF_ID");row.names(data_frequencies) <- data_frequencies$VCF_ID
+```
+
+
+```{r calculation of allelic frequencies}
+#formatting the genomic data
+data_frequencies_num <- data_frequencies[,-c(1:3)] %>% #keeping only the snps
+  apply(2,as.numeric) /2 #we divided by 2 because of the format of genomic data: 0,1,2 and for allelic frequencies and we want 0,0.5, 1
+
+
+#dataset with all information and genomic data in the right format
+data_frequencies_num_tot <- data.frame(data_frequencies[,c(1:3)],data_frequencies_num)
+
+#calculation of allelic frequencies
+allelic_frequencies <-data_frequencies_num_tot %>% dplyr::select(-c("VCF_ID","Country","Population")) %>% #remove non genomic data from the dataset
+  group_by(data_frequencies_num_tot$Population) %>% #we want the allelic frequencies at the population level so we grouped
+  summarise_at(vars(everything()),funs(mean),na.rm=T) %>% #calculate the mean for each snp per pop
+    ungroup() %>%
+as.data.frame()
+```
+
+Save the dataset of allelic frequencies
+
+```{r save alellic frequencies dataset}
+#move population level to row.names
+data_allelic_frequencies_non_imp_T_adapcon_gentree_452_8252snps <- allelic_frequencies %>% dplyr::select(-c("data_frequencies_num_tot$Population")); row.names(data_allelic_frequencies_non_imp_T_adapcon_gentree_452_8252snps) <- allelic_frequencies$'data_frequencies_num_tot$Population'
+
+#save
+
+save(data_allelic_frequencies_non_imp_T_adapcon_gentree_452_8252snps,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/data_allelic_frequencies_non_imp_T_adapcon_gentree_452_8252snps.Rdata")
+
+```
 
     2. GEA and other analysis
     
@@ -206,7 +248,7 @@ Na_indiv=0.3#% of Na per individual, 0.15 = we kept only individuals with less t
  
 ```{r save the filtered GEA file, eval=FALSE, include=FALSE}
 #save the filtered file to not run it each time
-save(vcf_filter_GEA, file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/script_filtering(not_running_it_each_time)/vcf_filter_GEA.Rdata")
+#save(vcf_filter_GEA, file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/script_filtering(not_running_it_each_time)/vcf_filter_GEA.Rdata")
 ```
 
 Filters used:  
@@ -241,6 +283,7 @@ genetic_data_geno <- vcf_data_GEA %>%
   mutate_all(funs(str_replace(., "0/0", "0"))) %>% 
   mutate_all(funs(str_replace(., "0/1", "1"))) %>% 
   mutate_all(funs(str_replace(., "1/1", "2")))
+
 ```
 
 
@@ -322,6 +365,7 @@ Gen_matrix_imp_T_Adapcon_Gentree_475_8616_BAYPASS <- Gen_matrix_imp_T_Adapcon_Ge
 
 save(Gen_matrix_imp_T_Adapcon_Gentree_475_8616_BAYPASS,file="C:/Users/tfrancisco/Documents/Thèse/Data/Espèces/Taxus_baccata/genetic_new/GEA/Gen_matrix_imp_T_Adapcon_Gentree_475_8616_BAYPASS.Rdata")
 ```
+
 
 
       2. Population-level genomic data
